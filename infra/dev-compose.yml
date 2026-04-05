@@ -77,6 +77,81 @@ services:
     networks:
       - ovp
 
+  # --- E2E test harness: feeder bot fleet ---
+  #
+  # Four headless Discord bots ("Moe", "Larry", "Curly", "Gygax") that each
+  # join a voice channel and play a pre-recorded WAV on command. They're
+  # driven by an external test runner via a loopback HTTP control API.
+  #
+  # Dev-only. Each needs its own Discord bot token supplied via .env:
+  #   FEEDER_TOKEN_MOE, FEEDER_TOKEN_LARRY, FEEDER_TOKEN_CURLY, FEEDER_TOKEN_GYGAX
+  #
+  # Control ports 8003-8006 are exposed on loopback only.
+
+  feeder-moe:
+    image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
+    restart: unless-stopped
+    environment:
+      DISCORD_TOKEN: ${FEEDER_TOKEN_MOE}
+      FEEDER_NAME: moe
+      AUDIO_FILE: /assets/moe.wav
+      CONTROL_PORT: "8003"
+      RUST_LOG: info,serenity=warn,songbird=warn
+    ports:
+      - "127.0.0.1:8003:8003"
+    volumes:
+      - ./assets:/assets:ro
+    networks:
+      - ovp
+
+  feeder-larry:
+    image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
+    restart: unless-stopped
+    environment:
+      DISCORD_TOKEN: ${FEEDER_TOKEN_LARRY}
+      FEEDER_NAME: larry
+      AUDIO_FILE: /assets/larry.wav
+      CONTROL_PORT: "8004"
+      RUST_LOG: info,serenity=warn,songbird=warn
+    ports:
+      - "127.0.0.1:8004:8004"
+    volumes:
+      - ./assets:/assets:ro
+    networks:
+      - ovp
+
+  feeder-curly:
+    image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
+    restart: unless-stopped
+    environment:
+      DISCORD_TOKEN: ${FEEDER_TOKEN_CURLY}
+      FEEDER_NAME: curly
+      AUDIO_FILE: /assets/curly.wav
+      CONTROL_PORT: "8005"
+      RUST_LOG: info,serenity=warn,songbird=warn
+    ports:
+      - "127.0.0.1:8005:8005"
+    volumes:
+      - ./assets:/assets:ro
+    networks:
+      - ovp
+
+  feeder-gygax:
+    image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
+    restart: unless-stopped
+    environment:
+      DISCORD_TOKEN: ${FEEDER_TOKEN_GYGAX}
+      FEEDER_NAME: gygax
+      AUDIO_FILE: /assets/gygax.wav
+      CONTROL_PORT: "8006"
+      RUST_LOG: info,serenity=warn,songbird=warn
+    ports:
+      - "127.0.0.1:8006:8006"
+    volumes:
+      - ./assets:/assets:ro
+    networks:
+      - ovp
+
 volumes:
   ovp-postgres:
   collector-buffer:
