@@ -1,0 +1,17 @@
+# Ephemeral / generated artifacts
+node_modules/
+*.log
+.DS_Store
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Claude Code scratch
+.claude/
+
+# Local env overrides (should never exist here, but defensive)
+.env
+.env.*
+!.env.example
