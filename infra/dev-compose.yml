@@ -71,6 +71,10 @@ services:
       LOCAL_BUFFER_DIR: /var/buffer
       MIN_PARTICIPANTS: ${MIN_PARTICIPANTS:-1}
       REQUIRE_ALL_CONSENT: ${REQUIRE_ALL_CONSENT:-true}
+      # Comma-separated Discord user IDs that auto-consent at session start
+      # without clicking the consent button. **Dev/E2E harness only.**
+      # Defaults to empty (no bypass) — prod must leave this unset.
+      BYPASS_CONSENT_USER_IDS: ${BYPASS_CONSENT_USER_IDS:-}
       RUST_LOG: ttrpg_collector=info,info
     volumes:
       - collector-buffer:/var/buffer
