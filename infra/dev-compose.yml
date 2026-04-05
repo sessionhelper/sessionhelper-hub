@@ -88,6 +88,9 @@ services:
   #
   # Control ports 8003-8006 are exposed on loopback only.
 
+  # WAVs are baked into the feeder image at /assets/ by the Dockerfile
+  # (see ttrpg-collector-feeder repo), so no volume mount is needed here.
+
   feeder-moe:
     image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
     restart: unless-stopped
@@ -99,8 +102,6 @@ services:
       RUST_LOG: info,serenity=warn,songbird=warn
     ports:
       - "127.0.0.1:8003:8003"
-    volumes:
-      - ./assets:/assets:ro
     networks:
       - ovp
 
@@ -115,8 +116,6 @@ services:
       RUST_LOG: info,serenity=warn,songbird=warn
     ports:
       - "127.0.0.1:8004:8004"
-    volumes:
-      - ./assets:/assets:ro
     networks:
       - ovp
 
@@ -131,8 +130,6 @@ services:
       RUST_LOG: info,serenity=warn,songbird=warn
     ports:
       - "127.0.0.1:8005:8005"
-    volumes:
-      - ./assets:/assets:ro
     networks:
       - ovp
 
@@ -147,8 +144,6 @@ services:
       RUST_LOG: info,serenity=warn,songbird=warn
     ports:
       - "127.0.0.1:8006:8006"
-    volumes:
-      - ./assets:/assets:ro
     networks:
       - ovp
 
