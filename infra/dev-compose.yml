@@ -100,6 +100,10 @@ services:
       AUDIO_FILE: /assets/moe.wav
       CONTROL_PORT: "8003"
       RUST_LOG: info,serenity=warn,songbird=warn
+      # Bind the control server to all interfaces inside the container so
+      # Docker's 127.0.0.1:PORT:PORT mapping can reach it. Host-side safety
+      # is still enforced by the loopback-only port mapping.
+      CONTROL_BIND: "0.0.0.0"
     ports:
       - "127.0.0.1:8003:8003"
     networks:
@@ -114,6 +118,10 @@ services:
       AUDIO_FILE: /assets/larry.wav
       CONTROL_PORT: "8004"
       RUST_LOG: info,serenity=warn,songbird=warn
+      # Bind the control server to all interfaces inside the container so
+      # Docker's 127.0.0.1:PORT:PORT mapping can reach it. Host-side safety
+      # is still enforced by the loopback-only port mapping.
+      CONTROL_BIND: "0.0.0.0"
     ports:
       - "127.0.0.1:8004:8004"
     networks:
@@ -128,6 +136,10 @@ services:
       AUDIO_FILE: /assets/curly.wav
       CONTROL_PORT: "8005"
       RUST_LOG: info,serenity=warn,songbird=warn
+      # Bind the control server to all interfaces inside the container so
+      # Docker's 127.0.0.1:PORT:PORT mapping can reach it. Host-side safety
+      # is still enforced by the loopback-only port mapping.
+      CONTROL_BIND: "0.0.0.0"
     ports:
       - "127.0.0.1:8005:8005"
     networks:
@@ -142,6 +154,10 @@ services:
       AUDIO_FILE: /assets/gygax.wav
       CONTROL_PORT: "8006"
       RUST_LOG: info,serenity=warn,songbird=warn
+      # Bind the control server to all interfaces inside the container so
+      # Docker's 127.0.0.1:PORT:PORT mapping can reach it. Host-side safety
+      # is still enforced by the loopback-only port mapping.
+      CONTROL_BIND: "0.0.0.0"
     ports:
       - "127.0.0.1:8006:8006"
     networks:
