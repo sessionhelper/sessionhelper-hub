@@ -28,6 +28,7 @@ There are **two hub repos**. This file lives in the public one.
 | `ovp-worker` | Polls Data API, runs pipeline, posts segments back. |
 | `ttrpg-collector` | Discord bot — captures per-speaker audio with consent, uploads chunks. |
 | `ttrpg-collector-feeder` | Dev-only feeder bot fleet — joins voice and plays WAVs for E2E testing. |
+| `ovp-api` | Public-facing API gateway — Discord OAuth, user sessions, proxies to data-api. |
 | `ttrpg-collector-frontend` | Next.js participant portal — consent, transcript review, data export. |
 
 ## Rust code style
