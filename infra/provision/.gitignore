@@ -1,0 +1,9 @@
+# Cached artifacts (large binaries, Docker images, models)
+cache/*
+!cache/.gitkeep
+
+# Runtime state
+state/servers.json
+
+# Any local env overrides
+*.secret
