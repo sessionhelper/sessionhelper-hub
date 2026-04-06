@@ -70,7 +70,7 @@ Discord voice session
    - On `/stop` or auto-stop (empty channel, 30s): finalize session, upload `meta.json` + `consent.json`, mark session `uploaded` in DB
 
 2. **Data API** (`ovp-data-api`):
-   - Stores chunks in S3 under `sessions/{session_id}/audio/{pseudo_id}/chunk-{seq}.pcm`
+   - Stores chunks in S3 under `sessions/{session_id}/audio/{pseudo_id}/chunk_{seq:04}.pcm`
    - Stores session + participant + consent state in Postgres
    - Updates session status: `recording` → `uploaded`
 

@@ -102,6 +102,26 @@ services:
   #
   # Control ports 8003-8006 are exposed on loopback only.
 
+  worker:
+    image: ovp-worker:dev
+    restart: unless-stopped
+    depends_on:
+      data-api:
+        condition: service_started
+    # Host network so the worker can reach the SSH reverse tunnel on
+    # localhost:8300 (Whisper) without Docker bridge NAT issues. Also
+    # reaches the data-api at localhost:8001 (its loopback port mapping).
+    # Trade-off: Docker DNS (service names) don't work — use localhost.
+    network_mode: host
+    environment:
+      DATA_API_URL: http://localhost:8001
+      DATA_API_SHARED_SECRET: ${SHARED_SECRET}
+      POLL_INTERVAL_SECS: "10"
+      WHISPER_URL: ${WHISPER_URL:-http://localhost:8300/v1/audio/transcriptions}
+      WHISPER_MODEL: ${WHISPER_MODEL:-deepdml/faster-whisper-large-v3-turbo-ct2}
+      VAD_MODEL_PATH: /app/models/silero_vad_v6.onnx
+      RUST_LOG: ovp_worker=debug,ovp_pipeline=info
+
   # WAVs are baked into the feeder image at /assets/ by the Dockerfile
   # (see ttrpg-collector-feeder repo), so no volume mount is needed here.
 
