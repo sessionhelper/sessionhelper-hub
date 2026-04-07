@@ -163,3 +163,8 @@ on upload failure (R6).
    proposal clearing race in `ws.rs`. Include the root cause analysis
    and a proposed fix (queue proposals instead of clearing pending
    commits).
+
+5. **Worker retry on S3 errors:** Worker currently fails the whole
+   session on a transient S3 download error (500 from data-api).
+   Needs per-chunk retry with backoff, and session-level retry
+   (reset to `uploaded` after N failures so it gets re-polled).
