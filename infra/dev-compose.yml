@@ -122,8 +122,13 @@ services:
       VAD_MODEL_PATH: /app/models/silero_vad_v6.onnx
       RUST_LOG: ovp_worker=debug,ovp_pipeline=info
 
-  # WAVs are baked into the feeder image at /assets/ by the Dockerfile
-  # (see ttrpg-collector-feeder repo), so no volume mount is needed here.
+  # Feeder WAVs: bind-mount the host session audio directory into each
+  # container at /test-audio (read-only). AUDIO_FILE points at the
+  # per-feeder WAV inside that mount. The host directory must exist on
+  # the VPS — see the scp command in the commit message / PR notes.
+  #
+  # Fallback: if the mount is removed, switch AUDIO_FILE back to the
+  # baked-in /assets/{name}.wav and drop the volumes: block.
 
   feeder-moe:
     image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
@@ -131,13 +136,15 @@ services:
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_MOE}
       FEEDER_NAME: moe
-      AUDIO_FILE: /assets/moe.wav
+      AUDIO_FILE: /test-audio/moe_torvin.wav
       CONTROL_PORT: "8003"
       RUST_LOG: info,serenity=warn,songbird=warn
       # Bind the control server to all interfaces inside the container so
       # Docker's 127.0.0.1:PORT:PORT mapping can reach it. Host-side safety
       # is still enforced by the loopback-only port mapping.
       CONTROL_BIND: "0.0.0.0"
+    volumes:
+      - /opt/ovp/test-audio:/test-audio:ro
     ports:
       - "127.0.0.1:8003:8003"
     networks:
@@ -149,13 +156,15 @@ services:
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_LARRY}
       FEEDER_NAME: larry
-      AUDIO_FILE: /assets/larry.wav
+      AUDIO_FILE: /test-audio/larry_sera.wav
       CONTROL_PORT: "8004"
       RUST_LOG: info,serenity=warn,songbird=warn
       # Bind the control server to all interfaces inside the container so
       # Docker's 127.0.0.1:PORT:PORT mapping can reach it. Host-side safety
       # is still enforced by the loopback-only port mapping.
       CONTROL_BIND: "0.0.0.0"
+    volumes:
+      - /opt/ovp/test-audio:/test-audio:ro
     ports:
       - "127.0.0.1:8004:8004"
     networks:
@@ -167,13 +176,15 @@ services:
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_CURLY}
       FEEDER_NAME: curly
-      AUDIO_FILE: /assets/curly.wav
+      AUDIO_FILE: /test-audio/curly_pip.wav
       CONTROL_PORT: "8005"
       RUST_LOG: info,serenity=warn,songbird=warn
       # Bind the control server to all interfaces inside the container so
       # Docker's 127.0.0.1:PORT:PORT mapping can reach it. Host-side safety
       # is still enforced by the loopback-only port mapping.
       CONTROL_BIND: "0.0.0.0"
+    volumes:
+      - /opt/ovp/test-audio:/test-audio:ro
     ports:
       - "127.0.0.1:8005:8005"
     networks:
@@ -185,13 +196,15 @@ services:
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_GYGAX}
       FEEDER_NAME: gygax
-      AUDIO_FILE: /assets/gygax.wav
+      AUDIO_FILE: /test-audio/gygax_gm.wav
       CONTROL_PORT: "8006"
       RUST_LOG: info,serenity=warn,songbird=warn
       # Bind the control server to all interfaces inside the container so
       # Docker's 127.0.0.1:PORT:PORT mapping can reach it. Host-side safety
       # is still enforced by the loopback-only port mapping.
       CONTROL_BIND: "0.0.0.0"
+    volumes:
+      - /opt/ovp/test-audio:/test-audio:ro
     ports:
       - "127.0.0.1:8006:8006"
     networks:
