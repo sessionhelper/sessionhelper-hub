@@ -158,11 +158,8 @@ and the fresh join gets a new batch of OP5 events.
 | `CHUNK_SIZE = 2 * 1024 * 1024` (2 MB) | ✅ |
 | Flush at chunk threshold | ✅ |
 | Final flush on session end (partial chunk) | ✅ |
-| Upload via Data API | ✅ (single attempt; retry is handled worker-side via `download_chunk_with_retry`, not on the collector's upload path) |
-
-**Still outstanding:** there is no upload retry on the collector side yet.
-Transient data-api outages during a live session drop that chunk. R7 still
-calls for 3-attempt backoff on the upload path; not implemented.
+| Upload via Data API | ✅ |
+| Upload retry on transient failures (R7) | ✅ `upload_chunk_with_retry` — 1s/2s/4s backoff on 5xx/network, re-auth on 401, fail-fast on 4xx |
 
 ### 6. Session lifecycle
 
@@ -189,8 +186,11 @@ calls for 3-attempt backoff on the upload path; not implemented.
 3. ~~**Worker retry on S3 errors:** per-chunk retry with backoff.~~ ✅
    Worker uses `download_chunk_with_retry` (1s/2s/4s backoff on 5xx), and the
    batch path now skips failed chunks instead of failing the whole session.
-4. **Collector-side R7:** Add retry (3 attempts, 1s backoff) to the chunk
-   upload in the buffer task. Only the worker's download has retry so far.
+4. ~~**Collector-side R7:** Add retry (3 attempts, 1s backoff) to the chunk
+   upload in the buffer task.~~ ✅ `upload_chunk_with_retry` mirrors the
+   worker's `download_chunk_with_retry`: 1s/2s/4s backoff on 5xx and
+   network errors, re-auth on 401, fail-fast on other 4xx. Spawned so
+   retries don't back-pressure the mpsc receiver loop.
 5. **Upstream PR:** File a bug/PR on songbird-next for the MLS proposal
    clearing race in `ws.rs`. Include the root cause analysis and a proposed
    fix (queue proposals instead of clearing pending commits).
