@@ -28,8 +28,7 @@ There are **two hub repos**. This file lives in the public one.
 | `chronicle-worker` | Polls Data API, runs pipeline, posts segments back. |
 | `chronicle-bot` | Discord bot — captures per-speaker audio with consent, uploads chunks. |
 | `chronicle-feeder` | Dev-only feeder bot fleet — joins voice and plays WAVs for E2E testing. |
-| `chronicle-api` | Public-facing API gateway — Discord OAuth, user sessions, proxies to data-api. |
-| `chronicle-portal` | Next.js participant portal — consent, transcript review, data export. |
+| `chronicle-portal` | Next.js participant portal — Discord OAuth, consent, transcript review, data export. Talks directly to data-api via its own BFF. |
 
 ## Rust code style
 

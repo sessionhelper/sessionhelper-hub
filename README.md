@@ -36,7 +36,6 @@ All active code lives in independent sibling repos:
 - [`chronicle-pipeline`](https://github.com/sessionhelper/chronicle-pipeline) — Rust library, VAD → Whisper → scene/beat operators
 - [`chronicle-portal`](https://github.com/sessionhelper/chronicle-portal) — Next.js 15 / React 19 participant portal with BFF auth + SSE bridge
 - [`chronicle-feeder`](https://github.com/sessionhelper/chronicle-feeder) — Rust, dev-only E2E test harness feeder bot (four Piper TTS voices)
-- [`chronicle-api`](https://github.com/sessionhelper/chronicle-api) — Rust, dormant public API gateway (see that repo's README)
 
 ## For travelers on a similar path
 
