@@ -427,7 +427,7 @@ See `docs/dave-bot-ecosystem.md` for the full ecosystem map and collaborator tre
 
 **Hosting cost drift.** Hetzner Object Storage is cheap but one bad month of storage bloat changes that. Need a concrete ceiling (O6.5) and an alert. Not implemented.
 
-**GHCR package transition post-rename.** After the ovp-*/ttrpg-collector-* → chronicle-* rename, old package paths still exist in GHCR and new builds need tagged releases before the new paths populate. Transition window during which compose files must point at old paths. Documented, not fully resolved.
+**GHCR package transition post-rename.** After the ovp-*/chronicle-bot-* → chronicle-* rename, old package paths still exist in GHCR and new builds need tagged releases before the new paths populate. Transition window during which compose files must point at old paths. Documented, not fully resolved.
 
 ### Open questions
 
@@ -457,4 +457,4 @@ Pointers to other docs for content that lives elsewhere:
 
 ## Appendix — revision log
 
-- **2026-04-11** — v0.1 initial draft. Written after the ovp-*/ttrpg-collector-* → chronicle-* rename (PRs merged same day). Traceability reflects post-rename state.
+- **2026-04-11** — v0.1 initial draft. Written after the ovp-*/chronicle-bot-* → chronicle-* rename (PRs merged same day). Traceability reflects post-rename state.
