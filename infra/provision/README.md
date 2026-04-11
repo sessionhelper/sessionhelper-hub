@@ -36,7 +36,7 @@ export HETZNER_API_TOKEN=hc_...
 
 | Profile | Server type | Purpose |
 |---|---|---|
-| `worker` | cpx21 (Hetzner) | ovp-worker + data pipeline, CPU only |
+| `worker` | cpx21 (Hetzner) | chronicle-worker + data pipeline, CPU only |
 | `gpu-inference` | ccx33 (Hetzner) | Ollama + qwen2.5:7b (CPU fallback) |
 | `whisper` | ccx33 (Hetzner) | faster-whisper-server |
 | `dev-stack` | cpx31 (Hetzner) | Full compose: postgres + data-api + collector + worker |

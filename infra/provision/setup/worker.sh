@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Worker setup — ovp-worker + data pipeline.
+# Worker setup — chronicle-worker + data pipeline.
 set -euo pipefail
 
 # Run common base setup

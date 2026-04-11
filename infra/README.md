@@ -61,7 +61,7 @@ Everything talks over Docker's internal DNS. Only the data-api listens on a host
 - **One Postgres per stack.** Containerized, data in a named volume. No shared DB across services. If you want the data out, pg_dump.
 - **The data-api is the only thing that touches storage.** Postgres + S3. Every other service is an HTTP client. This makes schema migrations and S3 auth rotations single-point changes, and makes the collector and worker stateless.
 - **Shared-secret service auth.** See [`CLAUDE.md`](../CLAUDE.md#shared-secret-service-auth). Every service in the deployment reads the same `SHARED_SECRET` env var, exchanges it for a session token, and heartbeats. No rotation until you have a security incident. No file-based tokens. No Vault.
-- **Systemd unit wraps `docker compose up -d`.** Survives reboots, gives you `systemctl restart ovp-data-api` as the one deploy operation, logs to journalctl.
+- **Systemd unit wraps `docker compose up -d`.** Survives reboots, gives you `systemctl restart chronicle-data-api` as the one deploy operation, logs to journalctl.
 
 ## Secrets management
 
@@ -87,7 +87,7 @@ Image tags on GHCR: `:latest`, `:dev`, `:v1.2.3`. The compose file references `:
 
 Deliberately minimal for this stage of the project:
 
-- **Structured logs** via `tracing` on the Rust side. Spans with meaningful field names, not printf. `journalctl -u ovp-data-api` gets you the full picture on the VPS.
+- **Structured logs** via `tracing` on the Rust side. Spans with meaningful field names, not printf. `journalctl -u chronicle-data-api` gets you the full picture on the VPS.
 - **Metrics via the `metrics` crate facade.** A Prometheus exporter feature is compiled in but not enabled in dev; turn it on when you actually need graphs.
 - **No APM, no Sentry, no log shipping.** If the VPS melts, you SSH in and read the journal. At this scale that's the right tool.
 

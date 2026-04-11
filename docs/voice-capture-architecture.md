@@ -11,7 +11,7 @@ Discord Voice Channel
   │  Per-user Opus/RTP streams (DAVE E2EE encrypted)
   ▼
 ┌─────────────────────────────────────────────────────┐
-│ Collector (ttrpg-collector)                          │
+│ Collector (chronicle-bot)                          │
 │                                                      │
 │  Songbird driver (voice WebSocket + UDP RX)          │
 │    │                                                 │
