@@ -429,6 +429,8 @@ See `docs/dave-bot-ecosystem.md` for the full ecosystem map and collaborator tre
 
 **GHCR package transition post-rename.** After the ovp-*/ttrpg-collector-* → chronicle-* rename, old package paths still exist in GHCR and new builds need tagged releases before the new paths populate. Transition window during which compose files must point at old paths. Documented, not fully resolved.
 
+**chronicle-portal BFF is non-functional for mutations and auth.** The portal has GET-side BFF routes (sessions, participants, segments, audio, events) but no mutation or auth routes. Missing: Discord OAuth (`/api/auth/*`), consent withdraw/reinstate, license flag updates. TypeScript client code calls these endpoints; they return 404 at runtime. The data model (two-flag license matrix, participant rows, consent events) is correctly represented in the data-api schema and the portal's types, but the user-facing runtime path is broken. Blocks Phase 1 / G2 walkthroughs (B.1, B.2, B.3). Surfaced 2026-04-11 during a docs reorganization pass. **Estimated scope to close: ~1-3 days of focused portal backend buildout.**
+
 ### Open questions
 
 - **Target dataset size for v1 release (O5.3).** 10? 50? 100 hours? Needs empirical data from Phase 2 and 3 to calibrate.
@@ -436,6 +438,7 @@ See `docs/dave-bot-ecosystem.md` for the full ecosystem map and collaborator tre
 - **Contribution-incentive validation metric (B.5).** "At least one external contributor opts in unprompted" is a binary success gate but not a continuous metric.
 - **Deletion SLA (X.2).** Currently set at 30 days; Phase 3 tightens to 7 days — verify this is achievable.
 - **Legal review budget and timeline.** Unknown. Phase 3 dependency.
+- **RAIL addendum — adopt, write custom, or drop?** The two-flag license matrix has an `ovp-rail` label for "published but no LLM training." The label is in the DB and the portal types, but the actual license addendum text does not exist yet. Three options: (a) adopt a named RAIL variant (OpenRAIL, BigScience RAIL), (b) write a custom no-training clause as an addendum on top of CC BY-SA 4.0, (c) drop the second tier entirely and publish the "no LLM training" subset under plain CC BY-SA 4.0 with a best-effort "please don't train" request. Tentative, needs decision before Phase 4 public release.
 
 ---
 
