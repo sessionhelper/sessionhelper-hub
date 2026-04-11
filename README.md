@@ -8,6 +8,7 @@ This repo is the **published, public** hub. It documents org-wide conventions, a
 
 | Path | Contents |
 |---|---|
+| `SPEC.md` | OVP program spec — mission, stakeholders, goals, non-goals, success criteria, milestones, traceability. The strategic layer above `ARCHITECTURE.md`. |
 | `CLAUDE.md` | Org-wide conventions — Rust code style, git workflow, comment philosophy, shared-secret auth model, public/private repo distinction. Each sibling service repo's slim `CLAUDE.md` points here. |
 | `ARCHITECTURE.md` | Cross-service architecture and data flow for the OVP + chronicle-bot stack. |
 | `legal/README.md` | Abstract journey notes on incorporating a single-member LLC, picking a state, registered agents, banking setup. No personal info. |
