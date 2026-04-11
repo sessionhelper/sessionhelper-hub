@@ -23,13 +23,13 @@ There are **two hub repos**. This file lives in the public one.
 
 | Repo | Role |
 |---|---|
-| `ovp-data-api` | Storage abstraction — Postgres + S3. The only service that touches either. |
-| `ovp-pipeline` | Rust library — PCM in, transcript segments out. VAD → Whisper → operators. |
-| `ovp-worker` | Polls Data API, runs pipeline, posts segments back. |
-| `ttrpg-collector` | Discord bot — captures per-speaker audio with consent, uploads chunks. |
-| `ttrpg-collector-feeder` | Dev-only feeder bot fleet — joins voice and plays WAVs for E2E testing. |
-| `ovp-api` | Public-facing API gateway — Discord OAuth, user sessions, proxies to data-api. |
-| `ttrpg-collector-frontend` | Next.js participant portal — consent, transcript review, data export. |
+| `chronicle-data-api` | Storage abstraction — Postgres + S3. The only service that touches either. |
+| `chronicle-pipeline` | Rust library — PCM in, transcript segments out. VAD → Whisper → operators. |
+| `chronicle-worker` | Polls Data API, runs pipeline, posts segments back. |
+| `chronicle-bot` | Discord bot — captures per-speaker audio with consent, uploads chunks. |
+| `chronicle-feeder` | Dev-only feeder bot fleet — joins voice and plays WAVs for E2E testing. |
+| `chronicle-api` | Public-facing API gateway — Discord OAuth, user sessions, proxies to data-api. |
+| `chronicle-portal` | Next.js participant portal — consent, transcript review, data export. |
 
 ## Rust code style
 
@@ -70,7 +70,7 @@ Never commit directly to `main` or `dev`. Never merge feature branches directly 
 
 ## Shared-secret service auth
 
-All internal service-to-service auth uses the same model (implemented in `ovp-data-api`, used by every other Rust service):
+All internal service-to-service auth uses the same model (implemented in `chronicle-data-api`, used by every other Rust service):
 
 1. A `SHARED_SECRET` env var is set on every service in the deployment.
 2. Clients `POST /internal/auth` with `{ "shared_secret": "...", "service_name": "..." }` and get back a session token.
@@ -98,7 +98,7 @@ No salt — voice is identifiable in the recordings anyway, the pseudonymization
 
 ## Design system
 
-UI work in `ttrpg-collector-frontend` (and any future frontend) follows the **Parchment** visual language and the Uncodixfy rules. See `design/uncodixfy-ui.md` for the full ruleset. The tl;dr:
+UI work in `chronicle-portal` (and any future frontend) follows the **Parchment** visual language and the Uncodixfy rules. See `design/uncodixfy-ui.md` for the full ruleset. The tl;dr:
 
 - Warm, editorial, honest. Linear/Raycast/Stripe, not generic AI dashboard.
 - No oversized rounded corners, no soft gradients, no hero sections inside dashboards, no decorative copy.

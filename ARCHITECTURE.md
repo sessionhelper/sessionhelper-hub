@@ -9,14 +9,14 @@ Discord voice session
         │
         ▼
 ┌────────────────────┐
-│  ttrpg-collector   │  Rust + serenity + songbird (DAVE E2EE)
+│  chronicle-bot   │  Rust + serenity + songbird (DAVE E2EE)
 │  (Discord bot)     │  • /record → consent → capture per-user PCM
 └─────────┬──────────┘  • Uploads 5MB audio chunks to Data API
           │
           │ HTTP (Bearer token)
           ▼
 ┌────────────────────┐
-│   ovp-data-api     │  Rust + Axum, 127.0.0.1:8001 only
+│   chronicle-data-api     │  Rust + Axum, 127.0.0.1:8001 only
 │   (storage API)    │  • Owns Postgres (sessions, participants, segments, consent)
 └─┬─────────────────┬┘  • Owns S3 (audio chunks, metadata files)
   │                 │   • Shared-secret auth + session tokens
@@ -25,14 +25,14 @@ Discord voice session
   ▼                 ▼
 
 ┌────────────────────┐           ┌──────────────────────┐
-│    ovp-worker      │──────────►│  External services   │
+│    chronicle-worker      │──────────►│  External services   │
 │  (batch poller)    │           │  • Whisper HTTP API  │
 │                    │           │  • Optional LLM      │
 │  1. poll for       │           │    (scene detection) │
 │     "uploaded"     │           └──────────────────────┘
 │  2. download chunks│
 │  3. run pipeline  ─┼──uses──►  ┌──────────────────────┐
-│  4. post segments  │           │   ovp-pipeline       │
+│  4. post segments  │           │   chronicle-pipeline       │
 │                    │           │   (Rust library)     │
 │                    │           │  RMS → VAD → Whisper │
 │                    │           │  → hallucination     │
@@ -42,7 +42,7 @@ Discord voice session
 └────────────────────┘
 
 ┌──────────────────────────┐
-│ ttrpg-collector-frontend │  Next.js / TypeScript
+│ chronicle-portal │  Next.js / TypeScript
 │ (participant portal)     │  • Discord OAuth login
 │                          │  • Review sessions, edit transcripts
 │                          │  • Manage consent, data export
@@ -50,38 +50,38 @@ Discord voice session
               │
               │ HTTP (Bearer from Data API auth)
               ▼
-         ovp-data-api
+         chronicle-data-api
 ```
 
 ## Key architectural rules
 
-1. **Only `ovp-data-api` touches storage.** No other service imports `sqlx`, `aws-sdk-s3`, or opens files in the storage dirs. If a service needs data, it goes through an HTTP endpoint.
+1. **Only `chronicle-data-api` touches storage.** No other service imports `sqlx`, `aws-sdk-s3`, or opens files in the storage dirs. If a service needs data, it goes through an HTTP endpoint.
 2. **Shared-secret service auth everywhere.** See `CLAUDE.md` for the protocol. No file-based tokens.
-3. **`ovp-pipeline` is a pure library.** No I/O except the outbound Whisper HTTP call. PCM `f32` samples in, `TranscriptSegment`s out. The worker owns all orchestration.
+3. **`chronicle-pipeline` is a pure library.** No I/O except the outbound Whisper HTTP call. PCM `f32` samples in, `TranscriptSegment`s out. The worker owns all orchestration.
 4. **Consent-first capture.** The bot only records audio for users whose consent state is `Accept`. Mid-session joiners see a consent prompt and are added to the consented set only on accept.
 5. **CC BY-SA 4.0 dataset.** All collected data is licensed under CC BY-SA 4.0 with explicit per-participant opt-outs for LLM training and public release.
 
 ## Data flow — typical session
 
-1. **Collector** (`ttrpg-collector`):
+1. **Collector** (`chronicle-bot`):
    - User runs `/record` → bot posts consent embed
    - Participants click Accept → quorum reached → bot joins voice
    - Per-speaker PCM streams through `VoiceTick` handler → buffered → 5MB chunks uploaded to Data API
    - On `/stop` or auto-stop (empty channel, 30s): finalize session, upload `meta.json` + `consent.json`, mark session `uploaded` in DB
 
-2. **Data API** (`ovp-data-api`):
+2. **Data API** (`chronicle-data-api`):
    - Stores chunks in S3 under `sessions/{session_id}/audio/{pseudo_id}/chunk_{seq:04}.pcm`
    - Stores session + participant + consent state in Postgres
    - Updates session status: `recording` → `uploaded`
 
-3. **Worker** (`ovp-worker`):
+3. **Worker** (`chronicle-worker`):
    - Polls `GET /internal/sessions?status=uploaded` every 10s
    - For each session: list participants (filter to `consent_scope=full`), download all chunks per speaker, decode stereo s16le → mono f32
    - Call `ovp_pipeline::process_session()` with VAD + Whisper config
    - Post resulting segments back via `POST /internal/sessions/{id}/segments`
    - Update status: `uploaded` → `transcribing` → `transcribed`
 
-4. **Pipeline** (`ovp-pipeline`) — called as a library by the worker:
+4. **Pipeline** (`chronicle-pipeline`) — called as a library by the worker:
    - Resample to 16kHz (Rubato)
    - RMS silence gate (cheap tier-1)
    - Silero VAD v6 via ONNX (tier-2)
@@ -90,7 +90,7 @@ Discord voice session
    - Scene chunker → scene operator (optional LLM) → beat operator
    - Return `PipelineResult { segments, excluded, scenes_detected, … }`
 
-5. **Frontend** (`ttrpg-collector-frontend`):
+5. **Frontend** (`chronicle-portal`):
    - Participant logs in via Discord OAuth
    - Dashboard lists their sessions, status, consent state
    - Session detail: transcript viewer with per-segment playback, inline editing, flagging
@@ -100,14 +100,14 @@ Discord voice session
 
 | Concern | Lives in |
 |---|---|
-| SQL schema, migrations | `ovp-data-api/migrations/` |
-| S3 bucket layout, paths | `ovp-data-api/src/storage/` |
-| Discord bot logic, slash commands, consent UI | `ttrpg-collector/voice-capture/src/commands/` |
-| Voice capture, SSRC→user mapping | `ttrpg-collector/voice-capture/src/voice/` |
-| Audio processing (VAD, resample, Whisper client) | `ovp-pipeline/src/` |
-| Operator trait, scene/beat detection | `ovp-pipeline/src/operators/` |
-| Worker polling, batch orchestration | `ovp-worker/src/worker.rs` |
-| Frontend API client, auth | `ttrpg-collector-frontend/src/lib/api-client.ts` |
+| SQL schema, migrations | `chronicle-data-api/migrations/` |
+| S3 bucket layout, paths | `chronicle-data-api/src/storage/` |
+| Discord bot logic, slash commands, consent UI | `chronicle-bot/voice-capture/src/commands/` |
+| Voice capture, SSRC→user mapping | `chronicle-bot/voice-capture/src/voice/` |
+| Audio processing (VAD, resample, Whisper client) | `chronicle-pipeline/src/` |
+| Operator trait, scene/beat detection | `chronicle-pipeline/src/operators/` |
+| Worker polling, batch orchestration | `chronicle-worker/src/worker.rs` |
+| Frontend API client, auth | `chronicle-portal/src/lib/api-client.ts` |
 | Cross-service env vars, shared secret | This hub (`CLAUDE.md`) |
 
 ## Deployment

@@ -20,14 +20,14 @@ save_image() {
   fi
 }
 
-save_image "ghcr.io/sessionhelper/ovp-worker:dev" "ovp-worker.tar.gz"
-save_image "ghcr.io/sessionhelper/ovp-data-api:dev" "ovp-data-api.tar.gz"
+save_image "ghcr.io/sessionhelper/chronicle-worker:dev" "chronicle-worker.tar.gz"
+save_image "ghcr.io/sessionhelper/chronicle-data-api:dev" "chronicle-data-api.tar.gz"
 save_image "postgres:16" "postgres-16.tar.gz"
 save_image "fedirz/faster-whisper-server:latest" "faster-whisper-server.tar.gz"
 
 # Models
 mkdir -p "${CACHE_DIR}/models"
-MODEL_SRC="/home/alex/ovp-pipeline/models/silero_vad_v6.onnx"
+MODEL_SRC="/home/alex/chronicle-pipeline/models/silero_vad_v6.onnx"
 if [ -f "$MODEL_SRC" ]; then
   echo "  copying silero_vad_v6.onnx..."
   cp "$MODEL_SRC" "${CACHE_DIR}/models/"
