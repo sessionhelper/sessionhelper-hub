@@ -115,9 +115,12 @@ There is no separate Rust public API gateway.
    - Stores chunks in S3 under `sessions/{session_id}/audio/{pseudo_id}/chunk_{seq:04}.pcm`.
    - Stores session + participant + segment + beat + scene + audit rows in Postgres.
    - After every successful mutation, broadcasts an `ApiEvent` on the internal
-     tokio broadcast bus. WebSocket subscribers (keyed by token service name)
-     either get reliable `mpsc`-queued delivery (internal services, 1000-msg buffer)
-     or best-effort broadcast (external clients).
+     tokio broadcast bus. Every authenticated WebSocket client gets the same
+     delivery path: a per-connection drain task copies events from the broadcast
+     bus into a private 1000-message mpsc queue that feeds the WS sender, so a
+     slow client backpressures against its own queue rather than losing events.
+     The data-api does not distinguish between client types — the internal/external
+     boundary is the portal's concern, not this service's.
 
 3. **Worker** (`chronicle-worker`):
    - Connects to `ws://data-api/ws?token=…`, subscribes to `sessions` topic.
