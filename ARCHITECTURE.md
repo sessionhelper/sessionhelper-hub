@@ -68,12 +68,10 @@ Discord voice session
 | `chronicle-data-api` | Internal storage API — owns Postgres + S3 + event bus | Rust (Axum + sqlx + aws-sdk-s3) | — (no local arch doc) |
 | `chronicle-worker` | Transcription worker, drives the pipeline | Rust (tokio + tungstenite) | — (no local arch doc) |
 | `chronicle-pipeline` | Pure processing library: VAD → Whisper → operators | Rust library | `chronicle-pipeline/docs/architecture.md` |
-| `chronicle-api` | Dormant public gateway (formerly planned as the portal's API) | Rust (Axum) | — (dormant, see note) |
 
-The frontend bypasses `chronicle-api` entirely and calls `chronicle-data-api` directly through
-its own Next.js BFF (`src/app/api/*` routes) using the shared-secret auth. `chronicle-api`
-still compiles and exposes a few `/api/v1/*` routes but nothing is wired to it in
-the current compose stacks. See `sessionhelper-hub/docs/auth-proxy-plan.md`.
+The portal (`chronicle-portal`) is the only user-facing service and calls `chronicle-data-api`
+directly through its own Next.js BFF (`src/app/api/*` routes) using the shared-secret auth.
+There is no separate Rust public API gateway.
 
 ## Key architectural rules
 
