@@ -11,17 +11,28 @@ session with 4 consented speakers must produce 4 audio tracks.
 
 ## R2: DAVE health detection is event-driven, not content-based
 
-The system detects broken DAVE decryption using a single signal:
-**SpeakingStateUpdate (OP5) fires but the speaker's SSRC never
-appears in VoiceTick.** No amplitude analysis, no voice_state
-cross-reference, no per-speaker packet counting.
+The system detects broken DAVE decryption via three complementary signals,
+all fed by the same underlying data — **SpeakingStateUpdate (OP5) firing
+for a user whose SSRC never appears in `ssrcs_seen`**. No amplitude analysis,
+no voice_state cross-reference, no per-speaker packet counting.
 
-Detection logic:
+Detection logic (`commands/consent.rs::spawn_dave_heal_task`):
 
 ```
-OP5 fires for user X → start 2-second timer
-  → SSRC appears in VoiceTick before timer expires → DAVE is working
-  → timer expires with no SSRC → DAVE is broken → trigger heal (R3)
+Tier 1 — Initial OP5 window (10s after recording_started):
+  OP5 fires for user X → start 10-second timer
+    → SSRC appears in VoiceTick before timer expires → DAVE is working
+    → timer expires with no SSRC → DAVE is broken → trigger heal (R3)
+  Also: if ssrcs_seen.len() > 0 but mapped < consented, heal immediately
+        (covers missed OP5 edge-trigger).
+
+Tier 2 — Periodic fallback (every 10s after stable):
+  Re-drain op5_rx, re-check mapped vs live consented_count.
+  Heal if the mismatch persists.
+
+Tier 3 — Dead-connection fallback:
+  If recording_stable but ssrcs_seen has stayed empty for 30s after
+  stabilization, treat the voice connection as dead → trigger heal.
 ```
 
 Why this works:

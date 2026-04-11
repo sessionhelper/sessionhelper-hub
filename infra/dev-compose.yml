@@ -38,7 +38,7 @@ services:
       - ovp
 
   data-api:
-    image: ghcr.io/sessionhelper/ovp-data-api:dev
+    image: ghcr.io/sessionhelper/chronicle-data-api:dev
     restart: unless-stopped
     depends_on:
       postgres:
@@ -51,7 +51,7 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_BUCKET: ${S3_BUCKET}
       SHARED_SECRET: ${SHARED_SECRET}
-      RUST_LOG: ovp_data_api=info,tower_http=info
+      RUST_LOG: chronicle_data_api=info,tower_http=info
     # Loopback-only on host; sibling containers reach it via the ovp network.
     ports:
       - "127.0.0.1:8001:8001"
@@ -59,7 +59,7 @@ services:
       - ovp
 
   collector:
-    image: ghcr.io/sessionhelper/ttrpg-collector:dev
+    image: ghcr.io/sessionhelper/chronicle-bot:dev
     restart: unless-stopped
     depends_on:
       data-api:
@@ -81,7 +81,7 @@ services:
       # leaves this unset and the axum task is never spawned.
       HARNESS_ENABLED: ${HARNESS_ENABLED:-false}
       HARNESS_PORT: "8010"
-      RUST_LOG: ttrpg_collector=info,info
+      RUST_LOG: chronicle_bot=info,info
     ports:
       # Loopback-only. The harness endpoint is unreachable from the
       # public internet; only other processes on the host can talk to it.
@@ -103,7 +103,7 @@ services:
   # Control ports 8003-8006 are exposed on loopback only.
 
   worker:
-    image: ovp-worker:dev
+    image: chronicle-worker:dev
     restart: unless-stopped
     depends_on:
       data-api:
@@ -120,7 +120,7 @@ services:
       WHISPER_URL: ${WHISPER_URL:-http://localhost:8300/v1/audio/transcriptions}
       WHISPER_MODEL: ${WHISPER_MODEL:-deepdml/faster-whisper-large-v3-turbo-ct2}
       VAD_MODEL_PATH: /app/models/silero_vad_v6.onnx
-      RUST_LOG: ovp_worker=debug,ovp_pipeline=info
+      RUST_LOG: chronicle_worker=debug,chronicle_pipeline=info
 
   # Feeder WAVs: bind-mount the host session audio directory into each
   # container at /test-audio (read-only). AUDIO_FILE points at the
@@ -131,7 +131,7 @@ services:
   # baked-in /assets/{name}.wav and drop the volumes: block.
 
   feeder-moe:
-    image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
+    image: ghcr.io/sessionhelper/chronicle-feeder:dev
     restart: unless-stopped
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_MOE}
@@ -151,7 +151,7 @@ services:
       - ovp
 
   feeder-larry:
-    image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
+    image: ghcr.io/sessionhelper/chronicle-feeder:dev
     restart: unless-stopped
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_LARRY}
@@ -171,7 +171,7 @@ services:
       - ovp
 
   feeder-curly:
-    image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
+    image: ghcr.io/sessionhelper/chronicle-feeder:dev
     restart: unless-stopped
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_CURLY}
@@ -191,7 +191,7 @@ services:
       - ovp
 
   feeder-gygax:
-    image: ghcr.io/sessionhelper/ttrpg-collector-feeder:dev
+    image: ghcr.io/sessionhelper/chronicle-feeder:dev
     restart: unless-stopped
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_GYGAX}
