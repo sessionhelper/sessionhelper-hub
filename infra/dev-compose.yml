@@ -81,6 +81,10 @@ services:
       # leaves this unset and the axum task is never spawned.
       HARNESS_ENABLED: ${HARNESS_ENABLED:-false}
       HARNESS_PORT: "8010"
+      # Bind the harness server to all interfaces inside the container so
+      # Docker's 127.0.0.1:PORT:PORT mapping can reach it via docker-proxy.
+      # Host-side safety is still enforced by the loopback-only port mapping.
+      HARNESS_BIND: "0.0.0.0"
       RUST_LOG: chronicle_bot=info,info
     ports:
       # Loopback-only. The harness endpoint is unreachable from the
