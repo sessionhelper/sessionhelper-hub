@@ -8,14 +8,21 @@ Status legend: `[ ]` = not started, `[~]` = scaffolded, `[x]` = running.
 
 ---
 
-## [ ] Long-session soak
+## [~] Long-session soak
 
 **What it proves.** The bot survives a multi-hour session without leaking
 file handles, growing accum unboundedly, exhausting disk cache, or
 stalling under sustained packet flow. Spec target is 4 hours of clean
 DAVE capture; longest tested today is ~30 seconds.
 
-**Where it lives.** New script under `chronicle-bot/test-soak/`, driven by:
+**Status.** Orchestrator scaffolded at `chronicle-bot/test-soak/soak.py`
+(2026-04-13). Drives `/record` → staggered feeder joins → loop with
+RSS/FD probes every 60s → `/stop` → JSON report. End-to-end nightly run
+not yet validated; DAVE-heal counter scrape, silent-rollup detection,
+final-session-row check, and `verify-timeline.py` invocation are still
+TODO. See `chronicle-bot/test-soak/README.md`.
+
+**Where it lives.** Script under `chronicle-bot/test-soak/`, driven by:
 
 - `chronicle-feeder` fleet on the dev VPS, looping a long fixture WAV
   (concat of all four stooge clips × 1000 = ~3 hr of audio).
