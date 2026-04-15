@@ -152,6 +152,22 @@ Discord-side weirdness. Instrumented in **v0.9.2** — next attempt
 will log `gateway_lag_ms`, `token_prefix`, and the full Debug form
 of the error so we can see Discord's numeric error code and body.
 
+**New diagnostic finding.** After pushing `serenity::gateway=info`
+RUST_LOG to dev, a single `Resumed` gateway event landed at 14:19
+UTC during a ~1-hour idle window. That's the smoking gun for the
+dual-ack hypothesis: resumes replay events in-flight at disconnect
+time. If our handler already processed+acked the interaction once,
+the replay's ack fails with "Unknown interaction" because Discord
+already disposed of the record.
+
+**Fix drafted as [PR #5](https://github.com/sessionhelper/chronicle-bot/pull/5).**
+Bounded ring buffer (128 entries) of recently-seen interaction IDs
+checked on every `interaction_create` dispatch. Snowflake IDs are
+globally unique so dedupe-by-ID can't drop legitimate work.
+Covers both Command and Component interactions.
+`chronicle_interactions_deduped_total` counter lets us see how often
+the protection fires in practice. 4 unit tests, CI green.
+
 ### The "Need at least 2 people" message that spooked you
 
 It *was* a real string in the code — `voice-capture/src/commands/record.rs`
@@ -182,25 +198,23 @@ lacks MANAGE_MESSAGES — but single-delete on own messages works.)
 
 ## Suggested pickup order tomorrow
 
-1. **Run one `/record` + `/stop` cycle** on dev without merging PR #4
-   yet. v0.9.2 is live and will tell us:
+1. **Run one `/record` + `/stop` cycle** on dev without merging any
+   PRs yet. v0.9.2 is live and will tell us:
    - Is OP5 firing at all for your SSRC (look for `op5_raw` log lines
      with non-null `user_id`)?
-   - Is `Unknown interaction` a dual-dispatch or late-gateway issue
-     (look for `gateway_lag_ms` and the debug-formatted error body)?
-2. **Review [PR #4](https://github.com/sessionhelper/chronicle-bot/pull/4).**
-   If the v0.9.2 logs confirm the missing-OP5 diagnosis, merge it and
-   re-test — stabilization should complete and recording should
-   announce. If they show a different OP5 behavior (arriving with
-   `user_id = None`, firing for the wrong SSRC, etc.), we can adjust
-   the PR before landing.
-3. **Review [PR #3](https://github.com/sessionhelper/chronicle-bot/pull/3)**
-   (soak scaffold). Scope is honest — scaffolded, not nightly-live.
-4. With #64 data in hand, decide whether `Unknown interaction` (#65)
-   needs its own fix or is downstream of the OP5 issue.
-5. Once voice is reliably capturing, start stage 1 of the session-actor
-   state refactor (extract `StabilizingState`; leave `RecordingState`
-   fields inline for the next PR).
+   - Are there `Resumed` gateway events correlated with any
+     `Unknown interaction` error (look for `serenity::gateway::shard`
+     INFO lines logged near the interaction)?
+2. **Review [PR #4](https://github.com/sessionhelper/chronicle-bot/pull/4)**
+   (OP5 inference — solo + last-missing-pair). If the v0.9.2 logs
+   confirm missing-OP5, merge and re-test.
+3. **Review [PR #5](https://github.com/sessionhelper/chronicle-bot/pull/5)**
+   (interaction dedupe for gateway resume replays). Independent of
+   PR #4; addresses the `Unknown interaction` symptom.
+4. **Review [PR #3](https://github.com/sessionhelper/chronicle-bot/pull/3)**
+   (soak scaffold). Honest scope — scaffolded, not nightly-live.
+5. Once voice is reliably capturing, start stage 1 of the
+   session-actor state refactor (extract `StabilizingState`).
 6. Decide whether to start tightening the prod `:dev` image pin before
    any external tester lands.
 
