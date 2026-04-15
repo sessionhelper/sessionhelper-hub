@@ -85,7 +85,11 @@ services:
       # Docker's 127.0.0.1:PORT:PORT mapping can reach it via docker-proxy.
       # Host-side safety is still enforced by the loopback-only port mapping.
       HARNESS_BIND: "0.0.0.0"
-      RUST_LOG: chronicle_bot=info,info
+      # serenity::gateway=info surfaces RESUME/RECONNECT events so we can
+      # tell whether "Unknown interaction" ack failures correlate with a
+      # resume replaying already-acked events. Bumping the crate floor
+      # stays quieter than a global `debug`.
+      RUST_LOG: chronicle_bot=info,serenity::gateway=info,info
     ports:
       # Loopback-only. The harness endpoint is unreachable from the
       # public internet; only other processes on the host can talk to it.
