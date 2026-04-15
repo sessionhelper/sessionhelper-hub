@@ -93,6 +93,34 @@ tracker sees, including ones with `user_id = None` that we were
 silently dropping. Next test will tell us whether Discord is sending
 events we're ignoring, or not sending any OP5 for this SSRC at all.
 
+**Source-dive finding.** `songbird/src/driver/tasks/ws.rs:259-268`
+shows the WS task only fires `SpeakingStateUpdate` events to our
+handler when it receives a `GatewayEvent::Speaking` from Discord's
+voice server. The internal `ssrc_signalling.ssrc_user_map` is
+populated *only* from these events (line 262-263). There is **no
+other path** in songbird that backfills SSRC→user_id — no
+ClientConnect-with-SSRC, no DAVE-handshake side-channel. The
+Speaking event documentation
+(`serenity-voice-model/src/payload.rs:205-208`) says `user_id` is
+"included in messages received from the server" but the type is
+`Option<UserId>`, so there's no type-level guarantee.
+
+**Likely root cause:** Discord sends OP5 on speech-start transitions,
+not continuously. If the user was already speaking when the bot
+joined the voice channel, the initial "started speaking" event was
+emitted by Discord before our WS connection was alive. Subsequent
+voice ticks have `decoded_voice = Some(...)` (DAVE decrypt works)
+but no fresh OP5 is sent until the user stops speaking and restarts.
+
+**Implication for the fix.** v0.9.1 logging will confirm whether OP5
+is missing entirely (root cause above) or arriving with `user_id =
+None` (different root cause). If the former, the fix is a
+single-speaker-inference fallback: when the voice channel has
+exactly one non-bot human and an unmapped SSRC is producing decoded
+audio, infer the mapping from the voice-state cache. A branch with
+this fallback is not yet drafted; I want the v0.9.1 data before
+committing to the approach.
+
 ### "Unknown interaction" on ack (task #65)
 
 Three of four `/record` and `/stop` attempts tonight failed with
