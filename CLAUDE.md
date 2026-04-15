@@ -30,6 +30,23 @@ There are **two hub repos**. This file lives in the public one.
 | `chronicle-feeder` | Dev-only feeder bot fleet — joins voice and plays WAVs for E2E testing. |
 | `chronicle-portal` | Next.js participant portal — Discord OAuth, consent, transcript review, data export. Talks directly to data-api via its own BFF. |
 
+## Process hygiene — no zombies
+
+Before any interactive testing session that involves the live dev bot,
+run `sessionhelper-hub/scripts/check-zombies.sh`. The script reports any
+local `ttrpg-collector` / `chronicle-bot` processes that share the bot's
+Discord token and would race the live dev-VPS bot for interaction acks.
+Pass `--kill` to terminate.
+
+When you (Claude) start a local bot, pipeline worker, or similar long-
+running process during debugging: **kill it when you're done.** Stale
+`cargo run --release` builds in `nohup` or background shells are the
+most common source of zombies. Don't leave them for next session.
+
+Rule of thumb: if you `run_in_background` it, you own cleaning it up.
+If it survives past the current task, write down what it is and why
+it's still running.
+
 ## Engineering discipline
 
 Four principles that apply across every repo in the family. Adapted from

@@ -38,4 +38,20 @@ the same bits. Not a guarantee going forward.
 
 ---
 
+## [x] Zombie-bot check before live testing
+
+**The gap.** A stale locally-built bot process (`target/release/ttrpg-collector` from Apr 4) kept running for 11+ days using the dev Discord token, and was acking interactions in parallel with the actual dev-VPS bot. Symptoms: user sees responses from the old codebase (e.g. the "Need at least 2 people" string that was since removed) while the live bot's ack returns `404 Unknown interaction` because the zombie won the ack race.
+
+**Countermeasure.** `sessionhelper-hub/scripts/check-zombies.sh` walks `ps axo` for any process matching `ttrpg-collector` / `chronicle-bot` binary paths (including old pre-rename paths) and reports them. Run with `--kill` to terminate. Lives in the hub because it's cross-repo ops hygiene, and because `chronicle-bot/scripts/` is gitignored.
+
+**Fix signal.** Before any interactive test session, run
+```
+bash sessionhelper-hub/scripts/check-zombies.sh
+```
+If it reports anything, kill those before firing `/record`. Consider wiring it into the E2E test harness preflight.
+
+Noted 2026-04-15 after the zombie ate a full debugging evening's worth of interactions.
+
+---
+
 (Add new entries above this line.)
