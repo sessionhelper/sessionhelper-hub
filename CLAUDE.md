@@ -47,6 +47,33 @@ Rule of thumb: if you `run_in_background` it, you own cleaning it up.
 If it survives past the current task, write down what it is and why
 it's still running.
 
+## Deploy verification — confirm the bits landed
+
+After any `docker compose pull` + `up -d --force-recreate` on the dev
+or prod VPS: **verify the running binary actually contains your
+change** before assuming the deploy succeeded and running tests.
+Docker reports "Pulled" even when the registry tag hasn't moved;
+container "Recreated" means a new container from whatever image the
+tag resolves to, which may be stale.
+
+Quick verification — grep the new binary for a string unique to your
+change (log message, function name, feature flag text):
+
+```
+ssh <vps> "cd /opt/ovp && docker compose exec -T <service> sh -c \
+  'grep -a -oE \"YOUR_NEW_LOG_STRING\" /usr/local/bin/<binary> | head'"
+```
+
+No match ⇒ the deploy didn't land. Investigate the registry tag and
+workflow tagging logic before re-testing.
+
+Current tag convention:
+- `:branch-main` — rolls on every main push. What dev-compose pins to.
+- `:dev`, `:latest`, `:vX.Y.Z` — pushed only on version-tag pushes. What prod-compose pins to.
+
+So merging to main rolls dev automatically; rolling prod requires an
+explicit `git tag v*` + push.
+
 ## Engineering discipline
 
 Four principles that apply across every repo in the family. Adapted from

@@ -8,33 +8,40 @@ Status legend: `[ ]` = not started, `[~]` = in progress, `[x]` = done.
 
 ---
 
-## [ ] Image pins: stop rolling `:dev` for tagged releases
+## [x] Image pins: dev-compose at `:branch-main`, prod-compose at `:dev`
 
-**The gap.** `infra/prod-compose.yml` pins both `data-api` and
-`collector` to the `:dev` tag. The deploy workflow builds on every
-push and also builds on `v*` tags, but either way it just overwrites
-`:dev` in ghcr. So a `git tag v0.9.0` doesn't pin anything — the next
-`main` push can replace what prod is running without a new tag.
+**The gap (original framing — was wrong).** I thought `:dev` was being
+overwritten on every push. It wasn't: the deploy workflow only pushes
+`:dev` on `refs/tags/v*`. `main` pushes only get `:sha-<short>` and
+`:branch-main`. Because both dev-compose and prod-compose pointed at
+`:dev`, dev couldn't roll ahead of prod, and **any merge-to-main was
+invisible until someone cut a version tag.** This ate a full day of
+testing on 2026-04-15: every /record test against the "deployed" fixes
+was actually against the previous v-tag build.
 
-**Why it's tolerable.** Nothing on prod is a real release yet. The
-only current user is me. Rolling `:dev` means I can ship a hotfix
-from `main` without re-tagging, which is the right trade-off for
-Phase 0 when we're still stabilising voice.
+**Fix (landed 2026-04-15).** `sessionhelper-hub/infra/dev-compose.yml`
+now pins every built service to `:branch-main` instead of `:dev`. The
+workflow already pushes that tag on every main push, so dev rolls
+automatically. Prod keeps `:dev` — rolls only on a conscious `git tag
+v*`.
 
-**Fix signal.** First time I want to say "prod is on v0.9.0 and dev
-is one ahead" and actually mean it. Probably when external testers
-land, or when a rollback matters (i.e. we ship something and need
-to bounce back to the previous known-good tag). At that point:
+**Deploy-verification habit.** After any `docker compose up -d
+--force-recreate`, verify the running binary actually contains your
+change before assuming the deploy landed:
 
-- `prod-compose.yml` pins to a specific `:vX.Y.Z` tag.
-- Deploy workflow's SSH step writes the tag into the compose file
-  (or env) before `docker compose up -d`, so the pin follows the
-  release being deployed.
-- Keep `:dev` rolling for the dev VPS, separately.
+```
+ssh <vps> "cd /opt/ovp && docker compose exec -T <service> sh -c \
+  'grep -a -oE \"YOUR_NEW_LOG_STRING\" /usr/local/bin/<binary> | head'"
+```
 
-Noted 2026-04-15 after the v0.2.0-rc3 / v0.9.0 deploy — the tagged
-images landed, but only because `:dev` had just been rewritten with
-the same bits. Not a guarantee going forward.
+If the new string isn't there, the deploy didn't take. Investigate
+before re-testing — don't burn a debugging cycle against stale bits.
+
+**Followup that's still open (task #68).** Also add `:dev` to the
+main-push tag list in the workflow so a hotfix to main bypasses the
+explicit v-tag step. Would also need prod-compose to move off `:dev`
+first, otherwise every main push hits prod. Lower priority now that
+dev rolls autonomously via `:branch-main`.
 
 ---
 

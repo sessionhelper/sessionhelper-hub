@@ -38,7 +38,7 @@ services:
       - ovp
 
   data-api:
-    image: ghcr.io/sessionhelper/chronicle-data-api:dev
+    image: ghcr.io/sessionhelper/chronicle-data-api:branch-main
     restart: unless-stopped
     depends_on:
       postgres:
@@ -59,7 +59,7 @@ services:
       - ovp
 
   collector:
-    image: ghcr.io/sessionhelper/chronicle-bot:dev
+    image: ghcr.io/sessionhelper/chronicle-bot:branch-main
     restart: unless-stopped
     depends_on:
       data-api:
@@ -111,7 +111,7 @@ services:
   # Control ports 8003-8006 are exposed on loopback only.
 
   worker:
-    image: ghcr.io/sessionhelper/chronicle-worker:dev
+    image: ghcr.io/sessionhelper/chronicle-worker:branch-main
     restart: unless-stopped
     depends_on:
       data-api:
@@ -160,7 +160,7 @@ services:
   # baked-in /assets/{name}.ogg and drop the volumes: block.
 
   feeder-moe:
-    image: ghcr.io/sessionhelper/chronicle-feeder:dev
+    image: ghcr.io/sessionhelper/chronicle-feeder:branch-main
     restart: unless-stopped
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_MOE}
@@ -180,7 +180,7 @@ services:
       - ovp
 
   feeder-larry:
-    image: ghcr.io/sessionhelper/chronicle-feeder:dev
+    image: ghcr.io/sessionhelper/chronicle-feeder:branch-main
     restart: unless-stopped
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_LARRY}
@@ -200,7 +200,7 @@ services:
       - ovp
 
   feeder-curly:
-    image: ghcr.io/sessionhelper/chronicle-feeder:dev
+    image: ghcr.io/sessionhelper/chronicle-feeder:branch-main
     restart: unless-stopped
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_CURLY}
@@ -220,7 +220,7 @@ services:
       - ovp
 
   feeder-gygax:
-    image: ghcr.io/sessionhelper/chronicle-feeder:dev
+    image: ghcr.io/sessionhelper/chronicle-feeder:branch-main
     restart: unless-stopped
     environment:
       DISCORD_TOKEN: ${FEEDER_TOKEN_GYGAX}
@@ -245,7 +245,7 @@ services:
   # SHARED_SECRET to call data-api. Behind Caddy TLS on dev.sessionhelper.com.
   # Loopback-only port mapping; public access routes through Caddy.
   portal:
-    image: ghcr.io/sessionhelper/chronicle-portal:dev
+    image: ghcr.io/sessionhelper/chronicle-portal:branch-main
     restart: unless-stopped
     depends_on:
       data-api:
