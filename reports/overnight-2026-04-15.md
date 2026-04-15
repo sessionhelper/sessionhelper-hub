@@ -120,15 +120,24 @@ exactly one non-bot human and an unmapped SSRC is producing decoded
 audio, infer the mapping from the voice-state cache.
 
 **Fix drafted as [PR #4](https://github.com/sessionhelper/chronicle-bot/pull/4).**
-`AudioObservables::infer_solo_speaker` called every 250ms on the
-stabilization poll tick — no-op when 0 or >1 humans in channel,
-idempotent otherwise, never overwrites existing mappings. 5 unit
-tests, 69/69 overall tests passing (the PR also fixes a pre-existing
-pseudo_id length off-by-one in the consent-JSON test). Covers the
-solo-recording path, does NOT paper over multi-speaker OP5 failures
-(which still need the v0.9.1 instrumentation to diagnose). **Awaits
-review before merge** — I didn't want to land this while you were
-asleep without seeing the v0.9.1 log output first.
+`AudioObservables::infer_ssrc_mappings` called every 250ms on the
+stabilization poll tick. Two rules:
+
+1. **Solo** — 1 human in channel; any unmapped SSRC must be theirs.
+2. **Last-missing-pair** — N humans; exactly 1 unmapped human + exactly
+   1 unmapped SSRC → pair forced by elimination.
+
+Both rules are unambiguous by set algebra. Abstains when ambiguous.
+Never overwrites existing mappings (a real OP5 wins). 8 unit tests,
+72/72 overall tests passing (the PR also fixes a pre-existing pseudo_id
+length off-by-one in the consent-JSON test, now landed separately on
+main as `43e8b50`). Covers the solo + partial-multi cases. Does NOT
+cover: multiple simultaneous OP5 gaps (N ≥ 2 unmapped humans OR ≥ 2
+unmapped SSRCs). Awaits review before merge.
+
+**Also pushed separately to dev-compose:** `serenity::gateway=info`
+RUST_LOG bump (`43fc164`) to surface RESUME/RECONNECT events during
+the next test — helps triangulate the `Unknown interaction` bug.
 
 ### "Unknown interaction" on ack (task #65)
 
