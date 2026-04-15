@@ -15,3 +15,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Playwright MCP scratch
+.playwright-mcp/
+# Accidental paste artefacts
+transcript-integrated
