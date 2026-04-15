@@ -30,6 +30,20 @@ There are **two hub repos**. This file lives in the public one.
 | `chronicle-feeder` | Dev-only feeder bot fleet — joins voice and plays WAVs for E2E testing. |
 | `chronicle-portal` | Next.js participant portal — Discord OAuth, consent, transcript review, data export. Talks directly to data-api via its own BFF. |
 
+## Engineering discipline
+
+Four principles that apply across every repo in the family. Adapted from
+[forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills).
+Bias is toward caution over speed — for trivial tasks (renames, one-line
+fixes, obvious typos) use judgment.
+
+1. **Think before coding.** Surface assumptions, don't hide them. If multiple interpretations of a request exist, name them and pick *after* the user steers — don't silently commit to one. If a simpler approach exists than what was asked for, say so before building the asked-for version.
+2. **Simplicity first.** Minimum code that solves the problem. No features, abstractions, configurability, or error handling for scenarios that weren't requested. Three similar lines beats a premature generic. If a diff is 200 lines and could be 50, rewrite it.
+3. **Surgical changes.** Every changed line should trace directly to the request. Don't "improve" adjacent code, don't refactor unrelated things, don't reformat. Delete imports/variables/functions only if *your* change made them unused — pre-existing dead code stays until someone asks. Match surrounding style even if you'd write it differently.
+4. **Goal-driven execution.** Turn vague tasks into verifiable goals before starting: "fix the bug" → "write a test that reproduces it, then make it pass"; "refactor X" → "ensure tests pass before and after". For multi-step work, state the plan with per-step verification so you can loop independently.
+
+These bias the diff shape (smaller, more focused) and the conversation shape (clarifying questions *before* implementation, not patch-and-apologize after). See the upstream repo for worked examples.
+
 ## Rust code style
 
 Follow [Rust Design Patterns](https://rust-unofficial.github.io/patterns/) and [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/).
