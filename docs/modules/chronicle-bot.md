@@ -101,6 +101,8 @@ Handlers never call `create_response` / `edit_response` / `create_followup` dire
 | `LOCAL_BUFFER_MAX_SECS` | no | `7200` | Per-participant cap before oldest-first drop |
 | `HARNESS_ENABLED` | no | `false` | Enables dev HTTP harness |
 | `HARNESS_BIND` | no | `127.0.0.1:8010` | Harness listen address |
+| `MIN_PARTICIPANTS` | no | `1` | Minimum consenting humans before the gate will open. **Dev runs at 1 (solo testing); prod should stay at 2** so a single-person "recording" isn't a surprising outcome. Set in `/opt/ovp/.env` per environment. |
+| `REQUIRE_ALL_CONSENT` | no | `true` | Gate waits for unanimity among detected humans. Flip to `false` for permissive-consent scenarios where one decliner shouldn't abort the whole session. |
 | `RUST_LOG` | no | `chronicle_bot=info` | tracing filter |
 
 Dropped vs prior version: `BYPASS_CONSENT_USER_IDS` (no more bypass list — harness supersedes).
