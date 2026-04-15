@@ -1,9 +1,9 @@
 # Session actor happy-path state refactor — plan
 
-Status: **draft plan, not started**. Sketched 2026-04-15 after the
-overnight /record test surfaced mixed Phase + bag-of-Options state in
-the actor. Agreed with user to defer until active DAVE/OP5 debugging
-settles.
+Status: **stages 1 + 2 landed on main 2026-04-15** (commits
+`b9c69b2` + `7be2d92`). Stage 3 (FinalizingState) is unnecessary — the
+finalize path exits the actor; there's no need for a persistent typed
+state there. Kept for reference below.
 
 ## Why
 
