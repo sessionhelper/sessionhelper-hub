@@ -123,8 +123,28 @@ services:
       POLL_INTERVAL_SECS: "10"
       WHISPER_URL: ${WHISPER_URL:-http://localhost:8300/v1/audio/transcriptions}
       WHISPER_MODEL: ${WHISPER_MODEL:-deepdml/faster-whisper-large-v3-turbo-ct2}
+      # Optional Whisper tuning knobs. All have worker-side defaults;
+      # these surface them so a dev can iterate without rebuilding.
+      # `INITIAL_PROMPT` primes Whisper with domain vocabulary — leave
+      # empty in prod, set per-session once the BFF or worker wires it.
+      WHISPER_INITIAL_PROMPT: ${WHISPER_INITIAL_PROMPT:-}
+      WHISPER_TEMPERATURE: ${WHISPER_TEMPERATURE:-0.0}
+      WHISPER_BEAM_SIZE: ${WHISPER_BEAM_SIZE:-5}
+      WHISPER_NO_SPEECH_THRESHOLD: ${WHISPER_NO_SPEECH_THRESHOLD:-0.6}
+      WHISPER_COMPRESSION_RATIO_THRESHOLD: ${WHISPER_COMPRESSION_RATIO_THRESHOLD:-2.4}
       VAD_MODEL_PATH: /app/models/silero_vad_v6.onnx
-      RUST_LOG: chronicle_worker=debug,chronicle_pipeline=info
+      # VAD defaults (0.5 / 250 / 800 / 100) drop short TTRPG utterances;
+      # the values below are the tuned dev-VPS baseline. Override per env.
+      VAD_THRESHOLD: ${VAD_THRESHOLD:-0.3}
+      VAD_MIN_SPEECH_MS: ${VAD_MIN_SPEECH_MS:-150}
+      VAD_MIN_SILENCE_MS: ${VAD_MIN_SILENCE_MS:-500}
+      VAD_PAD_MS: ${VAD_PAD_MS:-200}
+      # Filter default max_cps (25) rejects short legit utterances (e.g.
+      # 14 chars in 468ms = 29.9 cps); 35 leaves headroom.
+      FILTER_MIN_CONFIDENCE: ${FILTER_MIN_CONFIDENCE:--1.5}
+      FILTER_MAX_CPS: ${FILTER_MAX_CPS:-35}
+      FILTER_MIN_ALPHA: ${FILTER_MIN_ALPHA:-2}
+      RUST_LOG: ${WORKER_RUST_LOG:-chronicle_worker=info,chronicle_pipeline=info}
 
   # Feeder audio: bind-mount the host session audio directory into each
   # container at /test-audio (read-only). AUDIO_FILE points at a

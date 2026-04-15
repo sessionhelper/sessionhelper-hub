@@ -1,9 +1,22 @@
 # OVP — Program Spec
 
-**Status:** Phase 0 — voice capture broken, working on reliability
+**Status:** Phase 0 — voice capture reliability pass (structural)
 **Ownership:** Session Helper LLC, sole operator
 **Scope:** The Open Voice Project (OVP) data collection program and the Chronicle toolchain that produces it
-**Last reviewed:** 2026-04-11
+**Last reviewed:** 2026-04-13
+
+This file is strategic. Per-module implementation contracts (Features, Interfaces, Behavior) live under `docs/modules/<name>.md` — they are the authoritative source for what each service does. This doc points at them and governs program-level goals.
+
+**Module specs (all locked 2026-04-13):**
+
+- [`docs/modules/chronicle-bot.md`](./docs/modules/chronicle-bot.md)
+- [`docs/modules/chronicle-data-api.md`](./docs/modules/chronicle-data-api.md)
+- [`docs/modules/chronicle-pipeline.md`](./docs/modules/chronicle-pipeline.md)
+- [`docs/modules/chronicle-worker.md`](./docs/modules/chronicle-worker.md)
+- [`docs/modules/chronicle-portal.md`](./docs/modules/chronicle-portal.md)
+- [`docs/modules/chronicle-feeder.md`](./docs/modules/chronicle-feeder.md)
+
+Each doc defines Features, Interfaces, and Behavior for that service. The SPEC.md file above is strategic and references these as authoritative for implementation contracts.
 
 ---
 
@@ -93,11 +106,14 @@ Ordering is intent, not strict dependency. G1 is the current phase blocker; G5 i
 
 ### G1 — Reliable voice capture
 
-The Chronicle bot must capture per-speaker audio through DAVE E2EE without losing packets, dropping users, or failing on multi-user join.
+The Chronicle bot must capture per-speaker audio through DAVE E2EE without losing packets, dropping users, or failing on multi-user join — *and* remain responsive to user interactions throughout the session lifecycle.
 
-*This is the current Phase 0 blocker.* The ecosystem-wide MLS proposal clearing race (see `docs/dave-bot-ecosystem.md`) affects every davey-based bot. We ride `songbird` DAVE branch + `Snazzah/davey` and are exercising code with <2 weeks of production history and one author. The OP5-triggered reconnect heal is prototyped as the primary mitigation.
+*This is the current Phase 0 focus.* Two blocker classes are being worked in parallel:
 
-Nothing else ships until this does.
+- **DAVE/MLS ecosystem maturity** — the MLS proposal clearing race (see `docs/dave-bot-ecosystem.md`) affects every davey-based bot. Our mitigation is the stabilization gate defined in [`docs/modules/chronicle-bot.md`](./docs/modules/chronicle-bot.md): pre-gate leave/rejoin/retry happens silently; the "recording started" announcement plays only once the voice pipeline is stable and is the user-visible contract that capture is live.
+- **Bot responsiveness** — early Phase 0 surfaced a whole class of bugs unrelated to DAVE: global state mutex contention, `.await`-gated interaction handlers, Discord 3-second ack timing races. Addressed by the per-session actor model, a consolidated interaction wrapper, and a hard ack-first invariant. All formalized in the chronicle-bot module spec.
+
+Nothing else ships until G1 exits.
 
 ### G2 — Toolchain UX for three roles
 
@@ -182,10 +198,13 @@ Each high-level goal broken into concrete, scoped objectives.
 
 ### G1 → Reliable voice capture
 
-- **O1.1** — Reproduce the multi-user DAVE decrypt-failure bug with a minimal, scripted test case in `chronicle-feeder`.
-- **O1.2** — Ship the OP5-triggered reconnect heal to production `chronicle-bot` and verify it catches the failure class in the reproducer.
-- **O1.3** — Verify zero-loss capture across a 4-hour multi-user session in a realistic configuration (>= 4 speakers, MLS transitions triggered).
-- **O1.4** — Document a fallback-to-Craig path for critical sessions where our bot's reliability isn't trusted yet.
+- **O1.1** — Reproduce the multi-user DAVE decrypt-failure bug with a minimal, scripted test case via the `chronicle-feeder` + harness endpoints (no reliance on the bypass list, which has been removed).
+- **O1.2** — Ship the stabilization gate defined in `docs/modules/chronicle-bot.md`: gate opens only after N seconds of continuous healthy channels; announcement is the user-visible contract. Pre-gate disruption is silent.
+- **O1.3** — Ship the disk-backed pre-consent chunk cache so audio acquisition is decoupled from consent; late consent replays cached chunks in order, decline/timeout deletes them.
+- **O1.4** — Ship the consolidated interaction wrapper (ack-first invariant, one surface for every slash command + button). Verify `chronicle_interaction_ack_us` p99 stays below 500 ms under realistic load.
+- **O1.5** — Ship the catastrophic recovery path: on post-gate failure, bot posts a recovery message, restarts the session with a new session_id, carries forward consent records, and plays a new announcement — capped at 1 restart per guild per hour.
+- **O1.6** — Verify zero-loss capture across a 4-hour multi-user session (≥4 speakers, MLS transitions triggered).
+- **O1.7** — Document a fallback-to-Craig path for critical sessions where our bot's reliability isn't trusted yet.
 
 ### G2 → UX for three roles
 
@@ -231,11 +250,16 @@ Three pillars, one cross-cutting dimension. This section is a collaborative work
 
 ### A. Recording bot — functional via robust testing pipeline
 
+See [`docs/modules/chronicle-bot.md`](./docs/modules/chronicle-bot.md) for the locked module contract (Features + Interfaces + Behavior).
+
 - **A.1** Multi-user DAVE session captures all speakers for ≥4 hours with no session death. *(G1, G4)*
 - **A.2** Packet loss rate during MLS transitions below a committed threshold. *Target TBD — measured empirically from the reproducer.*
-- **A.3** Reconnect heal fires and recovers within N seconds of failure. *N TBD — currently "anecdotally fast."*
+- **A.3** Pre-gate leave/rejoin/retry is silent to the user; the "recording started" announcement plays exactly once per session_id when the stabilization gate opens.
 - **A.4** CI regression suite on `chronicle-bot` green across the synthetic capture corpus.
-- **A.5** `chronicle-feeder` can script the multi-user failure reproduction on demand.
+- **A.5** `chronicle-feeder` + harness endpoints can script multi-user consent, license toggles, and failure scenarios on demand — no `BYPASS_CONSENT_USER_IDS` reliance.
+- **A.6** Interaction ack latency `chronicle_interaction_ack_us` p99 stays below 500 ms through a full session lifecycle.
+- **A.7** Pre-consent disk cache demonstrably replays buffered audio to the data-api after late consent, and cleans up after decline/timeout/session-end.
+- **A.8** Catastrophic recovery path exercised end-to-end: one post-gate failure produces a rerun under a new session_id with consent carried forward; two failures within an hour correctly aborts with the "unrecoverable" message.
 
 ### B. UI/UX functional for all three roles
 
@@ -269,13 +293,20 @@ Each phase has a single focused exit criterion. Phases do not overlap — the pr
 
 ### Phase 0 — Voice reliability (CURRENT)
 
-**Focus:** Fix the DAVE-ecosystem MLS proposal clearing race that breaks multi-user capture.
+**Focus:** Ship the structural rework of `chronicle-bot` per the locked module spec — stabilization gate, actor-per-session, ack-first interaction wrapper, disk-backed pre-consent cache, catastrophic recovery — and prove it against real multi-user sessions.
 
-**Exit criterion:** `chronicle-bot` captures a clean multi-user 4-hour session with no session death, no unexplained packet loss, and verified OP5-triggered reconnect heal. Reproducer in `chronicle-feeder` exists and passes.
+**Exit criteria (all must hold):**
 
-**Does not exit on:** UI polish, dataset work, new pipeline features, SPEC.md revisions.
+1. `chronicle-bot` captures a clean multi-user 4-hour session with no session death, no unexplained packet loss, and correct stabilization-gate + heal behavior.
+2. `chronicle_interaction_ack_us` p99 < 500 ms measured across the session.
+3. Pre-consent cache replays to data-api on late consent and is cleaned up on decline / timeout / session-end.
+4. Catastrophic recovery demonstrated end-to-end: failure → restart with new session_id → consent carried forward → new announcement → capture continues.
+5. `chronicle-feeder` + harness endpoints script the full user flow — `/record`, consent, license, `/stop`, failure-injected restart — without relying on any bypass list or privileged user IDs.
+6. All A.1–A.8 criteria under §7 pillar A meet their targets in at least one staged test.
 
-**Active risks:** see §11 — DAVE/davey maturity is the entire phase blocker.
+**Does not exit on:** UI polish, dataset work, new pipeline features, SPEC.md revisions, portal buildout.
+
+**Active risks:** see §11 — DAVE/davey ecosystem maturity remains the largest unknown, but no longer the single point of failure thanks to the structural mitigations in the module spec.
 
 ### Phase 1 — UX for three roles
 

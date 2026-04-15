@@ -1,60 +1,82 @@
 # Architecture
 
-Cross-service data flow for the Session Helper / Open Voice Project stack. Each box is an independent repo deployed as its own container or binary.
+Cross-service data flow for the Chronicle stack. Each box is an independent repo deployed as its own container or binary. Post-features-pass shape: per-session actors in the bot, Operator-trait pipeline, ETag-guarded data-api, BFF-gated portal.
+
+## One-paragraph summary
+
+Discord voice flows into **chronicle-bot**, which runs one actor per session, writes per-speaker OPUS into a disk-backed cache, gates announcement + upload on a unanimous-consent stabilization window, then live-mixes a public combined stream. Chunks POST to **chronicle-data-api** — the single process that owns Postgres (24-hex pseudo_ids, ETag concurrency, audit log) and S3 (per-speaker + mixed audio). Data-api broadcasts `session_state_changed` / `chunk_uploaded` on an internal WebSocket bus. **chronicle-worker** subscribes, atomically claims sessions via state-machine PATCH, and feeds chunks into **chronicle-pipeline** (a Rust library: Operator trait chain, VAD → Whisper → metatalk filter → scene/beat detection, identical shape for streaming and one-shot). Outputs land back in data-api. **chronicle-portal** is a Next.js BFF + UI — the *only* internet-facing surface — serving Admin / GM / Player / Public views over the same data, enforcing per-user per-resource authorization before any data-api call. **chronicle-feeder** is a dev-only harness (fleet of Discord bots that play fixture audio) for end-to-end tests. No browser ever talks to data-api directly; no service except data-api touches Postgres or S3.
 
 ## High-level
 
 ```
 Discord voice session
-        │
+        │ DAVE E2EE (MLS)
         ▼
-┌────────────────────┐
-│  chronicle-bot   │  Rust + serenity + songbird (DAVE E2EE)
-│  (Discord bot)     │  • /record → consent → capture per-user PCM
-└─────────┬──────────┘  • Uploads 2MB audio chunks to Data API
-          │
-          │ HTTP (Bearer token, shared-secret auth)
-          ▼
-┌────────────────────┐
-│   chronicle-data-api     │  Rust + Axum, 127.0.0.1:8001 only
-│   (storage API)    │  • Owns Postgres (sessions, participants, segments,
-│                    │    beats, scenes, consent, audit)
-│                    │  • Owns S3 (audio chunks, metadata)
-│                    │  • Shared-secret auth + session tokens
-│                    │  • Real-time event bus (WebSocket)
-└─┬─────────────────┬┘
-  │                 │
-  │ (Postgres)      │ (Hetzner Object Storage, S3-compatible)
-  ▼                 ▼
-
-                    ▲                          ▲
-                    │ WS events                │ WS events
-                    │ (internal services)      │ (SSE via frontend BFF)
-                    │                          │
-┌───────────────────┴┐           ┌─────────────┴────────────┐
-│    chronicle-worker      │──uses──►  │ chronicle-portal │
-│  (event-driven)    │           │ (participant portal)     │
-│                    │           │ Next.js 15 / React 19    │
-│ 1. WS subscribe    │           │ • Discord OAuth (WIP)    │
-│ 2. chunk_uploaded  │           │ • SSE bridge to data-api │
-│    → feed to       │           │ • BFF proxies audio mix  │
-│    StreamingPipe   │           └──────────────────────────┘
-│ 3. status=uploaded │
-│    → finalize      │           ┌──────────────────────────┐
-│ 4. catchup poll    │──uses──►  │   chronicle-pipeline           │
-│    on WS reconnect │           │   (Rust library)         │
-│                    │           │  Resample → RMS → VAD →  │
-│                    │           │  Whisper → hallucination │
-│                    │           │  → metatalk → scenes →   │
-│                    │           │  optional beat/scene LLM │
-│                    │           │  Batch + streaming modes │
-└──────────┬─────────┘           └──────────┬───────────────┘
-           │                                │
-           │                                │ HTTP
-           ▼                                ▼
-    Whisper HTTP API                 Optional LLM endpoint
-    (faster-whisper,                 (scene / beat detection,
-    OpenAI-compatible)               OpenAI-compatible)
+┌──────────────────────────────┐
+│      chronicle-bot           │  Rust · serenity · songbird · opus2
+│  (per-session actor model)   │  • /record → consent gate → capture
+│                              │  • Disk-backed pre-consent cache
+│                              │  • Stabilization + announcement
+│                              │  • Live mix (license-flag aggregated)
+│                              │  • Catastrophic recovery (same session_id)
+└─────────────┬────────────────┘
+              │ HTTP · Bearer token · shared-secret
+              │ X-Capture-Started-At / X-Duration-Ms / X-Client-Chunk-Id
+              ▼
+┌──────────────────────────────────────────────┐
+│          chronicle-data-api                  │  Rust · Axum · sqlx · aws-sdk-s3
+│   (internal-only storage + event bus)        │  127.0.0.1:8001 (never public)
+│                                              │
+│  Postgres     sessions · participants        │  • 24-hex pseudo_ids
+│               segments · beats · scenes      │  • user_display_names table
+│               consent · mute_ranges          │  • ETag + If-Match concurrency
+│               audit_log · user_display_names │  • bounded per-subscriber WS queue
+│  S3           per-speaker OPUS · mixed OGG   │  • state-machine enforced transitions
+│               pipeline outputs               │
+│                                              │
+│  WS bus       session_state_changed          │
+│               chunk_uploaded                 │
+│               segment_created  (future)      │
+└──┬─────────────────────────────┬─────────────┘
+   │                             │
+   │ WS (services)               │ HTTP (services only)
+   ▼                             ▼
+┌──────────────────────────────┐   ┌──────────────────────────────┐
+│      chronicle-worker        │   │      chronicle-portal        │
+│  (event-driven · stateless)  │   │  (BFF + Next.js 15 / React)  │
+│                              │   │                              │
+│ • event_loop.rs select:      │   │ • ONLY internet-facing svc   │
+│     ws · poll · retry-queue  │   │ • Discord OAuth (Auth.js v5) │
+│ • session_runner per active  │   │ • Holds SHARED_SECRET        │
+│ • atomic claim (state PATCH) │   │ • Per-request per-resource   │
+│ • orphan reconciliation      │   │   authz on every BFF route   │
+│ • retry: 30s / 2m / 10m      │   │ • SSE fan-out from data-api  │
+│ • admin HTTP (env-gated)     │   │ • Strips privileged fields   │
+│ • no circuit breaker         │   │   before client response     │
+│                              │   │                              │
+│          ▲                   │   │   Admin / GM / Player views  │
+│          │ uses              │   │   over same codebase         │
+│          ▼                   │   │                              │
+│ ┌──────────────────────────┐ │   │ Behind Caddy TLS             │
+│ │   chronicle-pipeline     │ │   └──────────────────────────────┘
+│ │  (Rust library crate)    │ │
+│ │                          │ │   ┌──────────────────────────────┐
+│ │ Operator trait + chain:  │ │   │      chronicle-feeder        │
+│ │  Resample → RMS → VAD    │ │   │   (dev harness · not prod)   │
+│ │  → Whisper → metatalk    │ │   │                              │
+│ │  → scenes → optional     │ │   │ • Fleet of Discord bots      │
+│ │    beat/scene LLM        │ │   │   (Moe / Larry / Curly /     │
+│ │                          │ │   │    Gygax) play fixture OGG   │
+│ │ Same shape:              │ │   │ • Loopback control HTTP      │
+│ │  streaming · one-shot    │ │   │ • E2E test orchestration     │
+│ │  timescale-agnostic      │ │   │                              │
+│ └──────────┬───────────────┘ │   └──────────────────────────────┘
+└────────────┼─────────────────┘
+             │ HTTP
+             ▼
+      Whisper HTTP API              Optional LLM endpoint
+      (faster-whisper,              (scene / beat detection,
+       OpenAI-compatible)           OpenAI-compatible)
 ```
 
 ## Repos — complete inventory
