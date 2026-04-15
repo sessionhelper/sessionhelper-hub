@@ -117,9 +117,18 @@ is missing entirely (root cause above) or arriving with `user_id =
 None` (different root cause). If the former, the fix is a
 single-speaker-inference fallback: when the voice channel has
 exactly one non-bot human and an unmapped SSRC is producing decoded
-audio, infer the mapping from the voice-state cache. A branch with
-this fallback is not yet drafted; I want the v0.9.1 data before
-committing to the approach.
+audio, infer the mapping from the voice-state cache.
+
+**Fix drafted as [PR #4](https://github.com/sessionhelper/chronicle-bot/pull/4).**
+`AudioObservables::infer_solo_speaker` called every 250ms on the
+stabilization poll tick — no-op when 0 or >1 humans in channel,
+idempotent otherwise, never overwrites existing mappings. 5 unit
+tests, 69/69 overall tests passing (the PR also fixes a pre-existing
+pseudo_id length off-by-one in the consent-JSON test). Covers the
+solo-recording path, does NOT paper over multi-speaker OP5 failures
+(which still need the v0.9.1 instrumentation to diagnose). **Awaits
+review before merge** — I didn't want to land this while you were
+asleep without seeing the v0.9.1 log output first.
 
 ### "Unknown interaction" on ack (task #65)
 
@@ -164,17 +173,26 @@ lacks MANAGE_MESSAGES — but single-delete on own messages works.)
 
 ## Suggested pickup order tomorrow
 
-1. **Run one `/record` + `/stop` cycle** on dev. v0.9.2 will tell us:
+1. **Run one `/record` + `/stop` cycle** on dev without merging PR #4
+   yet. v0.9.2 is live and will tell us:
    - Is OP5 firing at all for your SSRC (look for `op5_raw` log lines
      with non-null `user_id`)?
    - Is `Unknown interaction` a dual-dispatch or late-gateway issue
      (look for `gateway_lag_ms` and the debug-formatted error body)?
-2. With that data, decide whether #64 is a songbird bug, a Discord
-   quirk, or our handler. Fix accordingly.
-3. Once voice is reliably capturing, start stage 1 of the session-actor
+2. **Review [PR #4](https://github.com/sessionhelper/chronicle-bot/pull/4).**
+   If the v0.9.2 logs confirm the missing-OP5 diagnosis, merge it and
+   re-test — stabilization should complete and recording should
+   announce. If they show a different OP5 behavior (arriving with
+   `user_id = None`, firing for the wrong SSRC, etc.), we can adjust
+   the PR before landing.
+3. **Review [PR #3](https://github.com/sessionhelper/chronicle-bot/pull/3)**
+   (soak scaffold). Scope is honest — scaffolded, not nightly-live.
+4. With #64 data in hand, decide whether `Unknown interaction` (#65)
+   needs its own fix or is downstream of the OP5 issue.
+5. Once voice is reliably capturing, start stage 1 of the session-actor
    state refactor (extract `StabilizingState`; leave `RecordingState`
    fields inline for the next PR).
-4. Decide whether to start tightening the prod `:dev` image pin before
+6. Decide whether to start tightening the prod `:dev` image pin before
    any external tester lands.
 
 — Claude
