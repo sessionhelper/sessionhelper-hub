@@ -129,7 +129,24 @@ session. /me routes unblocked.
 | Sign out | ✅ (redirects to `/`, public home) |
 | Segment text edit | ⏸ blocked: no transcribed segments on dev |
 
-Portal `v0.3.1` tagged and pushed.
+Portal `v0.3.1` tagged and pushed. Follow-up `v0.3.2` landed with
+hydration-warning fix + admin "(no name)" cleanup (see below).
+
+### Late-night follow-ups (post-initial-report)
+
+- **Hydration warning #418 fixed.** `src/components/local-date.tsx` is
+  a client component that wraps dates in `<time
+  dateTime={iso} suppressHydrationWarning>` and re-renders with the
+  user's local timezone after mount. Migrated all four pages
+  (dashboard, sessions list, session detail, manage, me). Also
+  coerces null participant/segment counts to 0 on the sessions list.
+- **Admin row cleanup.** Dropped the "(no name)" placeholder — row
+  shows just the pseudo_id when no display name exists. Underlying
+  cause (display names never recorded) still open; flagged below.
+- **Test fixture.** `filters.test.ts` mkSegment now includes
+  `start_ms`/`end_ms` to satisfy the tightened `SegmentSchema`.
+  Typecheck now clean across src + tests.
+- Portal `v0.3.2` tagged and pushed.
 
 ---
 
