@@ -150,6 +150,63 @@ hydration-warning fix + admin "(no name)" cleanup (see below).
 
 ---
 
+## Late-morning: transcript viewer restored + clean demo data (`v0.4.0`)
+
+You flagged before heading to work that the rich transcript interface
+was gone. Confirmed — the BFF refactor (`6f1843b`, 2026-04-12)
+dropped the 10e3bd0 viewer; tonight's PRs were built on the resulting
+132-line skeleton without realizing what was missing.
+
+**Restored as `chronicle-portal v0.4.0`:**
+
+- `src/components/transcript-viewer.tsx` (~470 lines) — per-speaker
+  color blocks, GM auto-detect, block grouping, **side-by-side
+  OverlapBlock for concurrent speakers**, click-to-seek (segment dots
+  and timestamps), double-click inline edit. Adapted from 10e3bd0 to
+  current schema (`start_ms`/`end_ms`, `pseudo_id`) and BFF auth.
+- `src/lib/audio-assembler.ts` — assembles raw PCM chunks from data-api
+  into a playable WAV server-side. The data-api never had a
+  `/audio/.../stream` endpoint; this is why audio was broken on
+  every session. Mixed stream falls back to the first speaker if no
+  mixed track exists.
+- Participant enrichment: `fetchSessionDetail` now stitches
+  `latest_display_name` per pseudo_id (session_participants table
+  doesn't carry it).
+- `GET /api/sessions/:id/participants` route (only `[pid]` subroute
+  existed before).
+
+**Demo data on dev:**
+
+Cleared 37 cruft sessions / 78 segments via TRUNCATE (kept 9 users
+so OAuth still works). Injected the chaotic-tavern scenario via
+`chronicle-feeder/scripts/inject-session.py` (patched to refresh the
+auth token on 401 mid-upload):
+
+- Session `ac0fdae6-e913-4ff5-9f8c-9667a511db85` "Crimson Tankard Demo"
+- 4 participants: gygax_gm (GM), moe_torvin, larry_sera, curly_pip
+- ~20 min real synthetic audio in S3 (per-speaker WAV)
+- 267 segments seeded from ground-truth.json (10 beats, 4 scenes,
+  57 of which are concurrent-speaker overlaps)
+- Status forced to `transcribed` via SQL (worker can't transcribe;
+  separate Whisper-tunnel issue)
+
+**Smoke verified live on dev:**
+
+- Speaker-labeled color blocks render
+- Audio player shows 20:18 duration (assembler working)
+- "↔ CONCURRENT" overlap blocks render side-by-side as expected
+- No console errors
+
+**Deferred from the original viewer (still on the list):**
+
+- SSE live updates as new segments stream in
+- Multi-layer correction history (each edit becomes an undo-able layer)
+- Scene/beat navigation sidebar
+- Auto-scroll on active block during playback
+
+These are kept as TODOs so the next pass can add them on top of the
+restored shell.
+
 ## ⚠️ Flagged by user — revised transcript interface lost in BFF refactor
 
 Not a tonight regression, but surfaced tonight: the prior client-side
