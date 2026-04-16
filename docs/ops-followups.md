@@ -61,4 +61,47 @@ Noted 2026-04-15 after the zombie ate a full debugging evening's worth of intera
 
 ---
 
+## [x] Nightly docker image + buildkit prune on dev VPS
+
+**The gap.** Dev VPS is a Hetzner CPX11 with a 38G root partition. Every
+push to `main` pulls fresh `:branch-main` images from ghcr on
+`docker compose up -d`, and buildkit cache layers accumulate in
+`/var/lib/docker/overlay2`. On 2026-04-15 late-evening the disk hit
+100% and postgres PANIC'd:
+`could not write ... No space left on device`. Manual `docker image
+prune -a -f` reclaimed 5.5GB and brought the stack back. Without a
+periodic prune we'll hit this again on roughly a weekly cadence.
+
+**Fix (landed 2026-04-15).** New `sessionhelper-hub/scripts/nightly-prune.sh`
+(VPS copy at `/opt/ovp/nightly-prune.sh`, same pattern as
+`nightly-soak.sh`). Runs:
+
+```
+docker image prune   -a -f --filter "until=48h"
+docker builder prune -a -f --filter "until=168h"
+```
+
+Keeps anything pulled in the last 48h so a rollback is still possible;
+buildkit cache is pruned at 7 days. Deliberately avoids
+`docker system prune`: too aggressive, and on older docker versions it
+can nuke unused volumes (postgres data).
+
+Logs + `df -h /` + `docker system df` before/after go to
+`/var/log/chronicle-prune/prune-<stamp>.log`, rotated at 14 days.
+
+Installed crontab (alongside the existing nightly-soak):
+
+```
+0  2 * * *  /opt/ovp/nightly-soak.sh
+15 3 * * *  /opt/ovp/nightly-prune.sh
+```
+
+03:15 UTC is right after the 3-hour soak (started 02:00) completes.
+
+**Fix signal.** Disk usage alert on dev VPS. If `df -h /` trends back
+toward 90%+ despite this cron running, tighten the `until=` windows or
+investigate which images/layers aren't qualifying for removal.
+
+---
+
 (Add new entries above this line.)
