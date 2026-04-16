@@ -150,6 +150,31 @@ hydration-warning fix + admin "(no name)" cleanup (see below).
 
 ---
 
+## ⚠️ Flagged by user — revised transcript interface lost in BFF refactor
+
+Not a tonight regression, but surfaced tonight: the prior client-side
+transcript viewer (last touched at `10e3bd0` on 2026-04-10) was
+dropped during the `6f1843b feat(portal): initial BFF build (#2)`
+refactor. Tonight's PRs were built on top of the post-refactor 132-line
+skeleton — they did not bring the viewer back.
+
+What was in the previous viewer (recoverable from git at `10e3bd0`):
+
+- `src/app/sessions/[id]/page.tsx` (~990 lines): overlap-column
+  layout for concurrent speakers, click-to-seek playback, scene
+  markers, confidence visualization, excluded-segment handling,
+  multi-layer correction history per segment.
+- `src/components/transcript/`: `flagged-segment`,
+  `playback-controls`, `segment-editor`, `segment-row`,
+  `transcript-list`.
+- `src/hooks/`: `use-audio-playback`, `use-session-events`,
+  `use-transcript`.
+- `src/app/api/sessions/[id]/`: `beats/route.ts`, `scenes/route.ts`.
+
+Restore path: `git checkout 10e3bd0 -- <paths>`, then port direct
+data-api calls to the BFF (`dataApiClient.*` + `page-data` fetchers).
+Worth doing carefully — this is real UX work, not throwaway.
+
 ## Flagged for morning
 
 1. **v0.2.1 data-api on prod.** Tag-push workflow deployed it. Additive
