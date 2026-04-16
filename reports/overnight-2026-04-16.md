@@ -1,0 +1,179 @@
+# Overnight report — 2026-04-16
+
+Portal PR arc landed (4/4 merged to main, shipped to dev), seven backend
+contract bugs fixed by an audit-driven schema sweep, disk-full PANIC
+recovered and a nightly prune shipped to prevent recurrence, data-api
+gained `/internal/admin/users` + PATCH admin flag endpoints, worker
+admin HTTP is now reachable from the portal bridge, and the full admin
+smoke loop (admin list → rerun → mute CRUD → license toggle) is green
+end-to-end on dev.
+
+---
+
+## Landed tonight
+
+### Portal PR arc — 4/4 on main, shipped to dev
+
+Commits `a265954` → `44299d2`:
+
+1. **PR 1/4 — design foundation + test infra.** Crimson Pro + Inter via
+   `next/font/google`, unified 4px radius via `--radius` CSS var,
+   Vitest + RTL + happy-dom wired up (`npm run test`).
+2. **PR 2/4 — admin rerun + mute-range CRUD.** `RerunButton` POSTs to
+   `/api/sessions/:id/rerun`, `MuteRanges` component with full per-participant
+   CRUD. Server-side auth via `resolveSessionRole`.
+3. **PR 3/4 — downloads bar.** Transcript JSON/text + per-speaker /
+   mixed audio download buttons. Uses signed BFF streams.
+4. **PR 4/4 — GM session manage page.** `/sessions/:id/manage` with
+   summary cards (participants, duration, chunks) + roster. Manage
+   button appears on session detail for GM + admin via `resolveSessionRole`.
+
+Dev deploy path for all four: merge → `:branch-main` ghcr tag →
+`docker compose up -d --force-recreate portal` on the VPS.
+
+### Schema audit — seven contract bugs fixed
+
+Commits `a503ab2` → `b30bdc9`. Smoke kept surfacing ZodError crashes;
+pivoted from whack-a-mole to an audit sub-agent that diffed every
+data-api response against every Zod parser in the portal. Fixes:
+
+- **Dashboard + sessions list no longer crash on null counts.**
+  `participant_count`, `segment_count`, `duration_ms`, `chunk_count`
+  all `.nullable().default(0)`.
+- **`guild_id` is a number, not a string.**
+  `z.union([z.string(), z.number()]).transform(String)` so UIs keep
+  treating it as text.
+- **`getUser` envelope.** GET `/internal/users/:id` returns
+  `{user, latest_display_name}`, POST returns flat user — handled in
+  client.
+- **Participant `pseudo_id` vs `user_pseudo_id`.** Schema transform
+  normalizes so downstream always reads `user_pseudo_id`.
+- **Session dates + flags.** Added `abandoned_at`, `deleted_at`,
+  `mid_session_join`, `data_wiped_at`, `client_id`, segment `title`,
+  `summary`, `flags`, `etag`.
+- **Graceful auth failure.** Dashboard + related server components
+  catch `AuthError` and redirect to `/login` instead of crashing.
+- **CI npm ci flakiness.** `--legacy-peer-deps` in Dockerfile for
+  React 19 vs RTL 16 peer conflict.
+
+### data-api: admin endpoints (v0.2.1)
+
+Sub-agent added:
+- `GET /internal/admin/users` — list all users (for `/admin` page).
+- `PATCH /internal/users/:pseudo_id { is_admin }` — toggle admin flag
+  from the UI.
+
+Tag `v0.2.1` pushed → auto-deployed to dev. **Gotcha worth flagging in
+the morning:** the deploy workflow also pushes `v*` tags to prod, so
+prod picked this up too. No data-visible change (additive routes only)
+but the v-tag workflow behaviour needs a sanity pass — see
+`ops-followups.md #68`.
+
+### Disk recovery + nightly prune
+
+`postgres` PANIC'd around 23:30 local with `No space left on device`
+(root at 100%). `docker image prune -a -f` reclaimed 5.5GB, postgres
+recovered cleanly. Shipped `sessionhelper-hub/scripts/nightly-prune.sh`
+(cron at 03:15 UTC, 15 min after nightly-soak):
+
+```
+docker image prune   -a -f --filter "until=48h"
+docker builder prune -a -f --filter "until=168h"
+```
+
+Logs to `/var/log/chronicle-prune/prune-<stamp>.log`, rotated at 14
+days. Deliberately avoids `docker system prune` (too aggressive).
+Entry added to `ops-followups.md`. Current disk: 23% used post-prune
+(vs 86% pre-cleanup).
+
+### Worker admin HTTP — reachable from portal bridge
+
+Portal runs on the `ovp` bridge; worker uses `network_mode: host` so
+Docker DNS can't find it. Fixed by:
+- `extra_hosts: ["host.docker.internal:host-gateway"]` on portal so it
+  can reach the host gateway.
+- `WORKER_ADMIN_ENABLED=true` + `ADMIN_BIND_ADDR=0.0.0.0:8020` on
+  worker (default was 127.0.0.1 which isn't reachable from the
+  docker bridge IP).
+
+Verified: rerun button → portal → worker admin HTTP → worker claims the
+session and enters the one-shot runner. Worker log:
+`admin HTTP listening bind=0.0.0.0:8020`, then `one-shot: entering
+run session=...`.
+
+### Admin fix: /me routes for admin users
+
+`resolveSessionRole` short-circuited admin with `participantId=null`,
+which meant admin users couldn't toggle their own consent / license /
+delete-my-audio on the Me page (403 forbidden). Commit `5e6c4da`:
+admin still gets `role=admin` for elevated ops, but now also gets
+their own `participantId` populated if they're a participant in the
+session. /me routes unblocked.
+
+---
+
+## Smoke matrix — green on dev
+
+| Flow | Status |
+|---|---|
+| Login (Discord OAuth dev app) | ✅ |
+| /dashboard (no crash on null counts) | ✅ |
+| /sessions list | ✅ (React hydration warning — see followups) |
+| /sessions/:id detail | ✅ |
+| /sessions/:id/manage (GM + admin) | ✅ |
+| /admin (lists 9 users) | ✅ after v0.2.1 |
+| Rerun button → worker | ✅ (202 → worker claims) |
+| Mute range add → list → delete | ✅ (POST 201 → DELETE 204) |
+| License toggle (admin's own) | ✅ after `5e6c4da` |
+| Consent dropdown change (full → decline → full) | ✅ |
+| Sign out | ✅ (redirects to `/`, public home) |
+| Segment text edit | ⏸ blocked: no transcribed segments on dev |
+
+Portal `v0.3.1` tagged and pushed.
+
+---
+
+## Flagged for morning
+
+1. **v0.2.1 data-api on prod.** Tag-push workflow deployed it. Additive
+   only; no schema migrations. Still — confirm the prod deploy is
+   intentional and consider narrowing the prod auto-deploy predicate
+   to `v*-rc*` or explicit prod-only tags. `ops-followups.md #68`.
+
+2. **React hydration warning #418 on `/sessions`.** Minified error, but
+   the pattern points at server vs client date formatting drift
+   (`formatDate` uses `toLocaleString` — timezone difference between
+   Node and browser). Not blocking; worth a cleanup pass to freeze the
+   format on the server and render the ISO string on both sides.
+
+3. **Chrome "Dangerous site" flag on dev.sessionhelper.com.** Spawned
+   an investigation in a fresh thread — Google Safe Browsing picked up
+   the OAuth redirect loop during the config churn. Expected to clear
+   24–72h after clean login traffic returns.
+
+4. **No transcribed segments on recent dev sessions.** Status shows
+   `transcribed` but `segment_count=0` on every recent session. Likely
+   Whisper tunnel or VAD threshold; not a portal problem. Worth a
+   pipeline-side look.
+
+5. **"(no name)" on /admin user list.** Users page shows IDs but no
+   display names — `latest_display_name` never populated. Need the
+   bot to call `recordDisplayName` on session join (or backfill).
+
+---
+
+## Still open on the plan
+
+- Segment text edit smoke (blocked on segments existing — pipeline-side).
+- Morning review of flagged items (see above).
+
+---
+
+## Health checks run tonight
+
+- Disk: 86% → 23% after `docker builder prune -a -f` (21GB cache).
+- Postgres: healthy after recovery.
+- All 9 dev services up: `postgres`, `data-api`, `worker`, `portal`,
+  `collector`, `feeder-{moe,larry,curly,gygax}`.
+- Worker admin listening on `0.0.0.0:8020`.
+- Portal routable at `https://dev.sessionhelper.com` behind Caddy TLS.
