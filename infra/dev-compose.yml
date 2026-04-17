@@ -90,6 +90,8 @@ services:
       # resume replaying already-acked events. Bumping the crate floor
       # stays quieter than a global `debug`.
       RUST_LOG: chronicle_bot=info,serenity::gateway=info,info
+      # Portal URL for consent-token DMs after session finalization.
+      PORTAL_URL: ${PORTAL_URL:-https://dev.sessionhelper.com}
     ports:
       # Loopback-only. The harness endpoint is unreachable from the
       # public internet; only other processes on the host can talk to it.
