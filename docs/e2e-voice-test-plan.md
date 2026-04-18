@@ -155,23 +155,40 @@ for port in 8003 8004 8005 8006; do
   sleep 5
 done
 
-# 4. POST consent for every feeder participant.
+# 4. PATCH consent for every feeder participant.
 #    REQUIRED when data-api has require_all_consent=true: chunks stay in
 #    Pending status until every participant either Accepts or Declines,
 #    and the 1hr multi-user DAVE test failed the chunk-ingestion assertion
 #    on Attempt 3 because this step was missing. Emulates the consent-embed
 #    button click for headless feeders.
-#    Fetch consent tokens from data-api, then POST with scope=full.
-SID="<session_id from step 2>"
-for pseudo_id in $(curl -s "http://127.0.0.1:8020/internal/sessions/$SID/participants" \
-                    | jq -r '.[].pseudo_id'); do
-  TOKEN=$(curl -s -X POST "http://127.0.0.1:8020/internal/sessions/$SID/consent-tokens" \
-            -H 'content-type: application/json' \
-            -d "{\"pseudo_id\":\"$pseudo_id\"}" | jq -r '.token')
-  curl -sX POST "http://127.0.0.1:8020/consent/$TOKEN" \
-    -H 'content-type: application/json' \
-    -d '{"scope":"full"}'
-done
+#
+# Data-API is on :8001 (dev). Internal endpoints require a service session
+# token obtained from POST /internal/auth with the shared secret. Consent
+# PATCH is a no-auth public endpoint keyed by the per-participant token.
+DATA_API="http://127.0.0.1:8001"
+SID="<session_id from step 2>"   # or look it up: /internal/sessions?active=1
+
+# 4a. Mint a service session token.
+TOK=$(curl -s -X POST "$DATA_API/internal/auth" \
+        -H 'content-type: application/json' \
+        -d "{\"shared_secret\":\"$SHARED_SECRET\",\"service_name\":\"soak-harness\"}" \
+      | jq -r .session_token)
+AUTH=(-H "authorization: Bearer $TOK")
+
+# 4b. Fetch participants, mint a consent token per pseudo_id, PATCH consent.
+curl -s "${AUTH[@]}" "$DATA_API/internal/sessions/$SID/participants" \
+  | jq -c '.[] | {id, pseudo_id}' \
+  | while read -r row; do
+      PID=$(jq -r .id <<<"$row")
+      PSEUDO=$(jq -r .pseudo_id <<<"$row")
+      CT=$(curl -s -X POST "$DATA_API/internal/consent-tokens" \
+             "${AUTH[@]}" -H 'content-type: application/json' \
+             -d "{\"session_id\":\"$SID\",\"participant_id\":\"$PID\",\"pseudo_id\":\"$PSEUDO\"}" \
+           | jq -r .token)
+      curl -s -X PATCH "$DATA_API/consent/$CT" \
+        -H 'content-type: application/json' \
+        -d '{"consent_scope":"full"}' >/dev/null
+    done
 
 # 5. Feeders play
 for port in 8003 8004 8005 8006; do
