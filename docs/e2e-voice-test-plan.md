@@ -40,6 +40,7 @@ Each scenario runs against the dev VPS + live Discord. Pre-conditions:
 - `bash /opt/ovp/check-zombies.sh` clean
 - Whisper tunnel up (`ssh root@dev.sessionhelper.com "curl -sf http://127.0.0.1:8300/health"`)
 - Feeder `AUDIO_FILE`s configured for whichever fixture the scenario needs (short clips for fast runs, 1hr Kokoro for sustained runs)
+- For **headless harness runs under `require_all_consent=true`**, the driver must POST `/consent` for every feeder participant after they register — see §E2E drivers below. Without this, chunks stay Pending and the ingest assertion fails.
 
 ### Scenario group A — Happy path
 
@@ -154,22 +155,40 @@ for port in 8003 8004 8005 8006; do
   sleep 5
 done
 
-# 4. Feeders play
+# 4. POST consent for every feeder participant.
+#    REQUIRED when data-api has require_all_consent=true: chunks stay in
+#    Pending status until every participant either Accepts or Declines,
+#    and the 1hr multi-user DAVE test failed the chunk-ingestion assertion
+#    on Attempt 3 because this step was missing. Emulates the consent-embed
+#    button click for headless feeders.
+#    Fetch consent tokens from data-api, then POST with scope=full.
+SID="<session_id from step 2>"
+for pseudo_id in $(curl -s "http://127.0.0.1:8020/internal/sessions/$SID/participants" \
+                    | jq -r '.[].pseudo_id'); do
+  TOKEN=$(curl -s -X POST "http://127.0.0.1:8020/internal/sessions/$SID/consent-tokens" \
+            -H 'content-type: application/json' \
+            -d "{\"pseudo_id\":\"$pseudo_id\"}" | jq -r '.token')
+  curl -sX POST "http://127.0.0.1:8020/consent/$TOKEN" \
+    -H 'content-type: application/json' \
+    -d '{"scope":"full"}'
+done
+
+# 5. Feeders play
 for port in 8003 8004 8005 8006; do
   curl -sX POST "http://127.0.0.1:$port/play"
 done
 
-# 5. Leave-scenario: kill one feeder mid-run
+# 6. Leave-scenario: kill one feeder mid-run
 curl -sX POST http://127.0.0.1:8004/leave
 
-# 6. Rejoin-scenario: have it rejoin
+# 7. Rejoin-scenario: have it rejoin
 sleep 10
 curl -sX POST http://127.0.0.1:8004/join \
   -H 'content-type: application/json' \
   -d '{"guild_id":..., "channel_id":...}'
 curl -sX POST http://127.0.0.1:8004/play
 
-# 7. Stop session
+# 8. Stop session
 curl -sX POST http://127.0.0.1:8010/stop \
   -H 'content-type: application/json' \
   -d '{"guild_id":...}'
