@@ -200,6 +200,27 @@ Enrolled → {
 }
 ```
 
+### Voice-state transitions (enrolment lifecycle)
+
+Participant enrolment is triggered by voice-state events — not just by the initial `/record` scan. The bot auto-enrols anyone who enters the session's voice channel and treats leaving-while-pending as an implicit Decline. This covers three concrete flows that the pure `/record`-scan approach missed:
+
+1. **Harness `/record`** spawns a session with empty participants. Feeders that join after session spawn need to be enrolled *on voice-join*, otherwise the sink has nowhere to route their decoded audio and every chunk is silently dropped.
+2. **Slash `/record` late-joiners.** Someone who wasn't in the channel at `/record` time but connects mid-session is captured with pending-consent state, same as if they'd been present at `/record`.
+3. **Pending user leaves.** If they bailed before consenting, waiting for their SSRC forever would stall the stabilization gate. Treat absence as implicit Decline (matches the `Pending → Decline` rule already codified for catastrophic-restart carry-forward).
+
+Decision table (pure function `voice_state_transition`, unit-tested):
+
+| Is bot? | User's new channel | Currently a participant? | Prior consent | Action |
+|---|---|---|---|---|
+| yes | any | any | any | Ignore (bot's own voice-state) |
+| no | session channel | no | — | **EnrolAndTrack** (auto-register, mark present) |
+| no | session channel | yes | any | TrackAsHuman (mark present; no re-enrol) |
+| no | different / none | no | — | Drop (never was ours) |
+| no | different / none | yes | Accepted / Declined | Drop (preserve consent; their audio so far is valid) |
+| no | different / none | yes | Pending | **ImplicitDeclineAndDrop** (absent user = non-consent) |
+
+Rejoin semantics: because SSRC→user_id mapping persists in the audio receiver across voice reconnect, and `packet_routes` is keyed by user_id, a user who leaves and comes back keeps the same per-participant task and cache. No data loss; no duplicate enrolment.
+
 ### Invariants (always hold)
 
 1. **Ack within ~200 ms.** Every Discord interaction is ack'd (Defer/Acknowledge) as the first outbound call via the wrapper. Measured via `chronicle_interaction_ack_us`.
