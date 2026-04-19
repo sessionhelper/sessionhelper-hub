@@ -185,7 +185,7 @@ curl -s "${AUTH[@]}" "$DATA_API/internal/sessions/$SID/participants" \
              "${AUTH[@]}" -H 'content-type: application/json' \
              -d "{\"session_id\":\"$SID\",\"participant_id\":\"$PID\",\"pseudo_id\":\"$PSEUDO\"}" \
            | jq -r .token)
-      curl -s -X PATCH "$DATA_API/consent/$CT" \
+      curl -s -X PATCH "$DATA_API/public/consent/$CT" \
         -H 'content-type: application/json' \
         -d '{"consent_scope":"full"}' >/dev/null
     done
